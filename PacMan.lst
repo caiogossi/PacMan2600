@@ -1,0 +1,2264 @@
+------- FILE PacMan.asm LEVEL 1 PASS 2
+      1  10000					       processor	6502
+------- FILE vcs.h LEVEL 2 PASS 2
+      0  10000 ????				       include	"vcs.h"
+      1  10000 ????						; VCS.H
+      2  10000 ????						; Version 1.06, 06/SEP/2020
+      3  10000 ????
+      4  10000 ????		00 6a	    VERSION_VCS =	106
+      5  10000 ????
+      6  10000 ????						; THIS IS *THE* "STANDARD" VCS.H
+      7  10000 ????						; THIS FILE IS EXPLICITLY SUPPORTED AS A DASM-PREFERRED COMPANION FILE
+      8  10000 ????						; The latest version can be found at https://dasm-assembler.github.io/
+      9  10000 ????						;
+     10  10000 ????						; This file defines hardware registers and memory mapping for the
+     11  10000 ????						; Atari 2600. It is distributed as a companion machine-specific support package
+     12  10000 ????						; for the DASM compiler. Updates to this file, DASM, and associated tools are
+     13  10000 ????						; available at at https://dasm-assembler.github.io/
+     14  10000 ????						;
+     15  10000 ????						; Many thanks to the people who have contributed. If you find an issue with the
+     16  10000 ????						; contents, or would like ot add something, please report as an issue at...
+     17  10000 ????						; https://github.com/dasm-assembler/dasm/issues
+     18  10000 ????
+     19  10000 ????						;
+     20  10000 ????						; Latest Revisions...
+     21  10000 ????						; 1.06  05/SEP/2020	 Modified header/license and links to new versions
+     22  10000 ????						; 1.05  13/NOV/2003	  - Correction to 1.04 - now functions as requested by MR.
+     23  10000 ????						;			  - Added VERSION_VCS equate (which will reflect 100x version #)
+     24  10000 ????						;			    This will allow conditional code to verify VCS.H being
+     25  10000 ????						;			    used for code assembly.
+     26  10000 ????						; 1.04  12/NOV/2003	 Added TIA_BASE_WRITE_ADDRESS and TIA_BASE_READ_ADDRESS for
+     27  10000 ????						;			 convenient disassembly/reassembly compatibility for hardware
+     28  10000 ????						;			 mirrored reading/writing differences.	This is more a 
+     29  10000 ????						;			 readability issue, and binary compatibility with disassembled
+     30  10000 ????						;			 and reassembled sources.  Per Manuel Rotschkar's suggestion.
+     31  10000 ????						; 1.03  12/MAY/2003	 Added SEG segment at end of file to fix old-code compatibility
+     32  10000 ????						;			 which was broken by the use of segments in this file, as
+     33  10000 ????						;			 reported by Manuel Polik on [stella] 11/MAY/2003
+     34  10000 ????						; 1.02  22/MAR/2003	 Added TIMINT($285)
+     35  10000 ????						; 1.01				Constant offset added to allow use for 3F-style bankswitching
+     36  10000 ????						;						 - define TIA_BASE_ADDRESS as $40 for Tigervision carts, otherwise
+     37  10000 ????						;						   it is safe to leave it undefined, and the base address will
+     38  10000 ????						;						   be set to 0.  Thanks to Eckhard Stolberg for the suggestion.
+     39  10000 ????						;			    Note, may use -DLABEL=EXPRESSION to define TIA_BASE_ADDRESS
+     40  10000 ????						;			  - register definitions are now generated through assignment
+     41  10000 ????						;			    in uninitialised segments.	This allows a changeable base
+     42  10000 ????						;			    address architecture.
+     43  10000 ????						; 1.0	22/MAR/2003		Initial release
+     44  10000 ????
+     45  10000 ????
+     46  10000 ????						;-------------------------------------------------------------------------------
+     47  10000 ????
+     48  10000 ????						; TIA_BASE_ADDRESS
+     49  10000 ????						; The TIA_BASE_ADDRESS defines the base address of access to TIA registers.
+     50  10000 ????						; Normally 0, the base address should (externally, before including this file)
+     51  10000 ????						; be set to $40 when creating 3F-bankswitched (and other?) cartridges.
+     52  10000 ????						; The reason is that this bankswitching scheme treats any access to locations
+     53  10000 ????						; < $40 as a bankswitch.
+     54  10000 ????
+     55  10000 ????			   -	       IFNCONST	TIA_BASE_ADDRESS
+     56  10000 ????			   -TIA_BASE_ADDRESS =	0
+     57  10000 ????				       ENDIF
+     58  10000 ????
+     59  10000 ????						; Note: The address may be defined on the command-line using the -D switch, eg:
+     60  10000 ????						; dasm.exe code.asm -DTIA_BASE_ADDRESS=$40 -f3 -v5 -ocode.bin
+     61  10000 ????						; *OR* by declaring the label before including this file, eg:
+     62  10000 ????						; TIA_BASE_ADDRESS = $40
+     63  10000 ????						;   include "vcs.h"
+     64  10000 ????
+     65  10000 ????						; Alternate read/write address capability - allows for some disassembly compatibility
+     66  10000 ????						; usage ; to allow reassembly to binary perfect copies).  This is essentially catering
+     67  10000 ????						; for the mirrored ROM hardware registers.
+     68  10000 ????
+     69  10000 ????						; Usage: As per above, define the TIA_BASE_READ_ADDRESS and/or TIA_BASE_WRITE_ADDRESS
+     70  10000 ????						; using the -D command-line switch, as required.  If the addresses are not defined, 
+     71  10000 ????						; they defaut to the TIA_BASE_ADDRESS.
+     72  10000 ????
+     73  10000 ????			   -	       IFNCONST	TIA_BASE_READ_ADDRESS
+     74  10000 ????			   -TIA_BASE_READ_ADDRESS =	TIA_BASE_ADDRESS
+     75  10000 ????				       ENDIF
+     76  10000 ????
+     77  10000 ????			   -	       IFNCONST	TIA_BASE_WRITE_ADDRESS
+     78  10000 ????			   -TIA_BASE_WRITE_ADDRESS =	TIA_BASE_ADDRESS
+     79  10000 ????				       ENDIF
+     80  10000 ????
+     81  10000 ????						;-------------------------------------------------------------------------------
+     82  10000 ????
+     83 U002d ????				      SEG.U	TIA_REGISTERS_WRITE
+     84 U0000					      ORG	TIA_BASE_WRITE_ADDRESS
+     85 U0000
+     86 U0000							; DO NOT CHANGE THE RELATIVE ORDERING OF REGISTERS!
+     87 U0000
+     88 U0000		       00	   VSYNC      ds	1	; $00	 0000 00x0   Vertical Sync Set-Clear
+     89 U0001		       00	   VBLANK     ds	1	; $01	 xx00 00x0   Vertical Blank Set-Clear
+     90 U0002		       00	   WSYNC      ds	1	; $02	 ---- ----   Wait for Horizontal Blank
+     91 U0003		       00	   RSYNC      ds	1	; $03	 ---- ----   Reset Horizontal Sync Counter
+     92 U0004		       00	   NUSIZ0     ds	1	; $04	 00xx 0xxx   Number-Size player/missle 0
+     93 U0005		       00	   NUSIZ1     ds	1	; $05	 00xx 0xxx   Number-Size player/missle 1
+     94 U0006		       00	   COLUP0     ds	1	; $06	 xxxx xxx0   Color-Luminance Player 0
+     95 U0007		       00	   COLUP1     ds	1	; $07	 xxxx xxx0   Color-Luminance Player 1
+     96 U0008		       00	   COLUPF     ds	1	; $08	 xxxx xxx0   Color-Luminance Playfield
+     97 U0009		       00	   COLUBK     ds	1	; $09	 xxxx xxx0   Color-Luminance Background
+     98 U000a		       00	   CTRLPF     ds	1	; $0A	 00xx 0xxx   Control Playfield, Ball, Collisions
+     99 U000b		       00	   REFP0      ds	1	; $0B	 0000 x000   Reflection Player 0
+    100 U000c		       00	   REFP1      ds	1	; $0C	 0000 x000   Reflection Player 1
+    101 U000d		       00	   PF0	      ds	1	; $0D	 xxxx 0000   Playfield Register Byte 0
+    102 U000e		       00	   PF1	      ds	1	; $0E	 xxxx xxxx   Playfield Register Byte 1
+    103 U000f		       00	   PF2	      ds	1	; $0F	 xxxx xxxx   Playfield Register Byte 2
+    104 U0010		       00	   RESP0      ds	1	; $10	 ---- ----   Reset Player 0
+    105 U0011		       00	   RESP1      ds	1	; $11	 ---- ----   Reset Player 1
+    106 U0012		       00	   RESM0      ds	1	; $12	 ---- ----   Reset Missle 0
+    107 U0013		       00	   RESM1      ds	1	; $13	 ---- ----   Reset Missle 1
+    108 U0014		       00	   RESBL      ds	1	; $14	 ---- ----   Reset Ball
+    109 U0015		       00	   AUDC0      ds	1	; $15	 0000 xxxx   Audio Control 0
+    110 U0016		       00	   AUDC1      ds	1	; $16	 0000 xxxx   Audio Control 1
+    111 U0017		       00	   AUDF0      ds	1	; $17	 000x xxxx   Audio Frequency 0
+    112 U0018		       00	   AUDF1      ds	1	; $18	 000x xxxx   Audio Frequency 1
+    113 U0019		       00	   AUDV0      ds	1	; $19	 0000 xxxx   Audio Volume 0
+    114 U001a		       00	   AUDV1      ds	1	; $1A	 0000 xxxx   Audio Volume 1
+    115 U001b		       00	   GRP0       ds	1	; $1B	 xxxx xxxx   Graphics Register Player 0
+    116 U001c		       00	   GRP1       ds	1	; $1C	 xxxx xxxx   Graphics Register Player 1
+    117 U001d		       00	   ENAM0      ds	1	; $1D	 0000 00x0   Graphics Enable Missle 0
+    118 U001e		       00	   ENAM1      ds	1	; $1E	 0000 00x0   Graphics Enable Missle 1
+    119 U001f		       00	   ENABL      ds	1	; $1F	 0000 00x0   Graphics Enable Ball
+    120 U0020		       00	   HMP0       ds	1	; $20	 xxxx 0000   Horizontal Motion Player 0
+    121 U0021		       00	   HMP1       ds	1	; $21	 xxxx 0000   Horizontal Motion Player 1
+    122 U0022		       00	   HMM0       ds	1	; $22	 xxxx 0000   Horizontal Motion Missle 0
+    123 U0023		       00	   HMM1       ds	1	; $23	 xxxx 0000   Horizontal Motion Missle 1
+    124 U0024		       00	   HMBL       ds	1	; $24	 xxxx 0000   Horizontal Motion Ball
+    125 U0025		       00	   VDELP0     ds	1	; $25	 0000 000x   Vertical Delay Player 0
+    126 U0026		       00	   VDELP1     ds	1	; $26	 0000 000x   Vertical Delay Player 1
+    127 U0027		       00	   VDELBL     ds	1	; $27	 0000 000x   Vertical Delay Ball
+    128 U0028		       00	   RESMP0     ds	1	; $28	 0000 00x0   Reset Missle 0 to Player 0
+    129 U0029		       00	   RESMP1     ds	1	; $29	 0000 00x0   Reset Missle 1 to Player 1
+    130 U002a		       00	   HMOVE      ds	1	; $2A	 ---- ----   Apply Horizontal Motion
+    131 U002b		       00	   HMCLR      ds	1	; $2B	 ---- ----   Clear Horizontal Move Registers
+    132 U002c		       00	   CXCLR      ds	1	; $2C	 ---- ----   Clear Collision Latches
+    133 U002d
+    134 U002d							;-------------------------------------------------------------------------------
+    135 U002d
+    136 U000e ????				      SEG.U	TIA_REGISTERS_READ
+    137 U0000					      ORG	TIA_BASE_READ_ADDRESS
+    138 U0000
+    139 U0000							;											bit 7	 bit 6
+    140 U0000		       00	   CXM0P      ds	1	; $00	     xx00 0000	     Read Collision  M0-P1   M0-P0
+    141 U0001		       00	   CXM1P      ds	1	; $01	     xx00 0000			     M1-P0   M1-P1
+    142 U0002		       00	   CXP0FB     ds	1	; $02	     xx00 0000			     P0-PF   P0-BL
+    143 U0003		       00	   CXP1FB     ds	1	; $03	     xx00 0000			     P1-PF   P1-BL
+    144 U0004		       00	   CXM0FB     ds	1	; $04	     xx00 0000			     M0-PF   M0-BL
+    145 U0005		       00	   CXM1FB     ds	1	; $05	     xx00 0000			     M1-PF   M1-BL
+    146 U0006		       00	   CXBLPF     ds	1	; $06	     x000 0000			     BL-PF   -----
+    147 U0007		       00	   CXPPMM     ds	1	; $07	     xx00 0000			     P0-P1   M0-M1
+    148 U0008		       00	   INPT0      ds	1	; $08	     x000 0000	     Read Pot Port 0
+    149 U0009		       00	   INPT1      ds	1	; $09	     x000 0000	     Read Pot Port 1
+    150 U000a		       00	   INPT2      ds	1	; $0A	     x000 0000	     Read Pot Port 2
+    151 U000b		       00	   INPT3      ds	1	; $0B	     x000 0000	     Read Pot Port 3
+    152 U000c		       00	   INPT4      ds	1	; $0C		x000 0000	 Read Input (Trigger) 0
+    153 U000d		       00	   INPT5      ds	1	; $0D		x000 0000	 Read Input (Trigger) 1
+    154 U000e
+    155 U000e							;-------------------------------------------------------------------------------
+    156 U000e
+    157 U0298 ????				      SEG.U	RIOT
+    158 U0280					      ORG	$280
+    159 U0280
+    160 U0280							; RIOT MEMORY MAP
+    161 U0280
+    162 U0280		       00	   SWCHA      ds	1	; $280      Port A data register for joysticks:
+    163 U0281							;			Bits 4-7 for player 1.  Bits 0-3 for player 2.
+    164 U0281
+    165 U0281		       00	   SWACNT     ds	1	; $281      Port A data direction register (DDR)
+    166 U0282		       00	   SWCHB      ds	1	; $282		Port B data (console switches)
+    167 U0283		       00	   SWBCNT     ds	1	; $283      Port B DDR
+    168 U0284		       00	   INTIM      ds	1	; $284		Timer output
+    169 U0285
+    170 U0285		       00	   TIMINT     ds	1	; $285
+    171 U0286
+    172 U0286							; Unused/undefined registers ($285-$294)
+    173 U0286
+    174 U0286		       00		      ds	1	; $286
+    175 U0287		       00		      ds	1	; $287
+    176 U0288		       00		      ds	1	; $288
+    177 U0289		       00		      ds	1	; $289
+    178 U028a		       00		      ds	1	; $28A
+    179 U028b		       00		      ds	1	; $28B
+    180 U028c		       00		      ds	1	; $28C
+    181 U028d		       00		      ds	1	; $28D
+    182 U028e		       00		      ds	1	; $28E
+    183 U028f		       00		      ds	1	; $28F
+    184 U0290		       00		      ds	1	; $290
+    185 U0291		       00		      ds	1	; $291
+    186 U0292		       00		      ds	1	; $292
+    187 U0293		       00		      ds	1	; $293
+    188 U0294
+    189 U0294		       00	   TIM1T      ds	1	; $294		set 1 clock interval
+    190 U0295		       00	   TIM8T      ds	1	; $295      set 8 clock interval
+    191 U0296		       00	   TIM64T     ds	1	; $296      set 64 clock interval
+    192 U0297		       00	   T1024T     ds	1	; $297      set 1024 clock interval
+    193 U0298
+    194 U0298							;-------------------------------------------------------------------------------
+    195 U0298							; The following required for back-compatibility with code which does not use
+    196 U0298							; segments.
+    197 U0298
+    198  0000 ????				      SEG
+    199  0000 ????
+    200  0000 ????						; EOF
+------- FILE PacMan.asm
+------- FILE macro.h LEVEL 2 PASS 2
+      0  0000 ????				      include	"macro.h"
+      1  0000 ????						; MACRO.H
+      2  0000 ????						; Version 1.09, 05/SEP/2020
+      3  0000 ????
+      4  0000 ????	       00 6d	   VERSION_MACRO =	109
+      5  0000 ????
+      6  0000 ????						;
+      7  0000 ????						; THIS FILE IS EXPLICITLY SUPPORTED AS A DASM-PREFERRED COMPANION FILE
+      8  0000 ????						; The latest version can be found at https://dasm-assembler.github.io/
+      9  0000 ????						;
+     10  0000 ????						; This file defines DASM macros useful for development for the Atari 2600.
+     11  0000 ????						; It is distributed as a companion machine-specific support package
+     12  0000 ????						; for the DASM compiler.
+     13  0000 ????						;
+     14  0000 ????						; Many thanks to the people who have contributed. If you find an issue with the
+     15  0000 ????						; contents, or would like ot add something, please report as an issue at...
+     16  0000 ????						; https://github.com/dasm-assembler/dasm/issues
+     17  0000 ????
+     18  0000 ????
+     19  0000 ????						; Latest Revisions...
+     20  0000 ????						; 1.09  05/SEP/2020	 - updated license/links
+     21  0000 ????
+     22  0000 ????						; 1.08  13/JUL/2020	 - added use of LXA to CLEAN_START
+     23  0000 ????						; 1.07  19/JAN/2020	 - correction to comment VERTICAL_SYNC
+     24  0000 ????						; 1.06  03/SEP/2004	 - nice revision of VERTICAL_SYNC (Edwin Blink)
+     25  0000 ????						; 1.05  14/NOV/2003	 - Added VERSION_MACRO equate (which will reflect 100x version #)
+     26  0000 ????						;			   This will allow conditional code to verify MACRO.H being
+     27  0000 ????						;			   used for code assembly.
+     28  0000 ????						; 1.04  13/NOV/2003	 - SET_POINTER macro added (16-bit address load)
+     29  0000 ????						;
+     30  0000 ????						; 1.03  23/JUN/2003	 - CLEAN_START macro added - clears TIA, RAM, registers
+     31  0000 ????						;
+     32  0000 ????						; 1.02  14/JUN/2003	 - VERTICAL_SYNC macro added
+     33  0000 ????						;			   (standardised macro for vertical synch code)
+     34  0000 ????						; 1.01  22/MAR/2003	 - SLEEP macro added. 
+     35  0000 ????						;			 - NO_ILLEGAL_OPCODES switch implemented
+     36  0000 ????						; 1.0	22/MAR/2003		Initial release
+     37  0000 ????
+     38  0000 ????						; Note: These macros use illegal opcodes.  To disable illegal opcode usage, 
+     39  0000 ????						;   define the symbol NO_ILLEGAL_OPCODES (-DNO_ILLEGAL_OPCODES=1 on command-line).
+     40  0000 ????						;   If you do not allow illegal opcode usage, you must include this file 
+     41  0000 ????						;   *after* including VCS.H (as the non-illegal opcodes access hardware
+     42  0000 ????						;   registers and require them to be defined first).
+     43  0000 ????
+     44  0000 ????						; Available macros...
+     45  0000 ????						;   SLEEP n		 - sleep for n cycles
+     46  0000 ????						;   VERTICAL_SYNC	 - correct 3 scanline vertical synch code
+     47  0000 ????						;   CLEAN_START	 - set machine to known state on startup
+     48  0000 ????						;   SET_POINTER	 - load a 16-bit absolute to a 16-bit variable
+     49  0000 ????
+     50  0000 ????						;-------------------------------------------------------------------------------
+     51  0000 ????						; SLEEP duration
+     52  0000 ????						; Original author: Thomas Jentzsch
+     53  0000 ????						; Inserts code which takes the specified number of cycles to execute.	This is
+     54  0000 ????						; useful for code where precise timing is required.
+     55  0000 ????						; ILLEGAL-OPCODE VERSION DOES NOT AFFECT FLAGS OR REGISTERS.
+     56  0000 ????						; LEGAL OPCODE VERSION MAY AFFECT FLAGS
+     57  0000 ????						; Uses illegal opcode (DASM 2.20.01 onwards).
+     58  0000 ????
+     59  0000 ????				      MAC	sleep
+     60  0000 ????			   .CYCLES    SET	{1}
+     61  0000 ????
+     62  0000 ????				      IF	.CYCLES < 2
+     63  0000 ????				      ECHO	"MACRO ERROR: 'SLEEP': Duration must be > 1"
+     64  0000 ????				      ERR
+     65  0000 ????				      ENDIF
+     66  0000 ????
+     67  0000 ????				      IF	.CYCLES & 1
+     68  0000 ????				      IFNCONST	NO_ILLEGAL_OPCODES
+     69  0000 ????				      nop	0
+     70  0000 ????				      ELSE
+     71  0000 ????				      bit	VSYNC
+     72  0000 ????				      ENDIF
+     73  0000 ????			   .CYCLES    SET	.CYCLES - 3
+     74  0000 ????				      ENDIF
+     75  0000 ????
+     76  0000 ????				      REPEAT	.CYCLES / 2
+     77  0000 ????				      nop
+     78  0000 ????				      REPEND
+     79  0000 ????				      ENDM		;usage: SLEEP n (n>1)
+     80  0000 ????
+     81  0000 ????						;-------------------------------------------------------------------------------
+     82  0000 ????						; VERTICAL_SYNC
+     83  0000 ????						; revised version by Edwin Blink -- saves bytes!
+     84  0000 ????						; Inserts the code required for a proper 3 scanline vertical sync sequence
+     85  0000 ????						; Note: Alters the accumulator
+     86  0000 ????
+     87  0000 ????						; OUT: A = 0
+     88  0000 ????
+     89  0000 ????				      MAC	vertical_sync
+     90  0000 ????				      lda	#%1110	; each '1' bits generate a VSYNC ON line (bits 1..3)
+     91  0000 ????			   .VSLP1     sta	WSYNC	; 1st '0' bit resets Vsync, 2nd '0' bit exit loop
+     92  0000 ????				      sta	VSYNC
+     93  0000 ????				      lsr
+     94  0000 ????				      bne	.VSLP1	; branch until VYSNC has been reset
+     95  0000 ????				      ENDM
+     96  0000 ????
+     97  0000 ????						;-------------------------------------------------------------------------------
+     98  0000 ????						; CLEAN_START
+     99  0000 ????						; Original author: Andrew Davie
+    100  0000 ????						; Standardised start-up code, clears stack, all TIA registers and RAM to 0
+    101  0000 ????						; Sets stack pointer to $FF, and all registers to 0
+    102  0000 ????						; Sets decimal mode off, sets interrupt flag (kind of un-necessary)
+    103  0000 ????						; Use as very first section of code on boot (ie: at reset)
+    104  0000 ????						; Code written to minimise total ROM usage - uses weird 6502 knowledge :)
+    105  0000 ????
+    106  0000 ????				      MAC	clean_start
+    107  0000 ????				      sei
+    108  0000 ????				      cld
+    109  0000 ????
+    110  0000 ????				      IFNCONST	NO_ILLEGAL_OPCODES
+    111  0000 ????				      lxa	#0
+    112  0000 ????				      ELSE
+    113  0000 ????				      ldx	#0
+    114  0000 ????				      txa
+    115  0000 ????				      ENDIF
+    116  0000 ????				      tay
+    117  0000 ????			   .CLEAR_STACK dex
+    118  0000 ????				      txs
+    119  0000 ????				      pha
+    120  0000 ????				      bne	.CLEAR_STACK	; SP=$FF, X = A = Y = 0
+    121  0000 ????
+    122  0000 ????				      ENDM
+    123  0000 ????
+    124  0000 ????						;-------------------------------------------------------
+    125  0000 ????						; SET_POINTER
+    126  0000 ????						; Original author: Manuel Rotschkar
+    127  0000 ????						;
+    128  0000 ????						; Sets a 2 byte RAM pointer to an absolute address.
+    129  0000 ????						;
+    130  0000 ????						; Usage: SET_POINTER pointer, address
+    131  0000 ????						; Example: SET_POINTER SpritePTR, SpriteData
+    132  0000 ????						;
+    133  0000 ????						; Note: Alters the accumulator, NZ flags
+    134  0000 ????						; IN 1: 2 byte RAM location reserved for pointer
+    135  0000 ????						; IN 2: absolute address
+    136  0000 ????
+    137  0000 ????				      MAC	set_pointer
+    138  0000 ????			   .POINTER   SET	{1}
+    139  0000 ????			   .ADDRESS   SET	{2}
+    140  0000 ????
+    141  0000 ????				      LDA	#<.ADDRESS	; Get Lowbyte of Address
+    142  0000 ????				      STA	.POINTER	; Store in pointer
+    143  0000 ????				      LDA	#>.ADDRESS	; Get Hibyte of Address
+    144  0000 ????				      STA	.POINTER+1	; Store in pointer+1
+    145  0000 ????
+    146  0000 ????				      ENDM
+    147  0000 ????
+    148  0000 ????						;-------------------------------------------------------
+    149  0000 ????						; BOUNDARY byte#
+    150  0000 ????						; Original author: Denis Debro (borrowed from Bob Smith / Thomas)
+    151  0000 ????						;
+    152  0000 ????						; Push data to a certain position inside a page and keep count of how
+    153  0000 ????						; many free bytes the programmer will have.
+    154  0000 ????						;
+    155  0000 ????						; eg: BOUNDARY 5    ; position at byte #5 in page
+    156  0000 ????
+    157  0000 ????			   .FREE_BYTES SET	0
+    158  0000 ????				      MAC	boundary
+    159  0000 ????				      REPEAT	256
+    160  0000 ????				      IF	<. % {1} = 0
+    161  0000 ????				      MEXIT
+    162  0000 ????				      ELSE
+    163  0000 ????			   .FREE_BYTES SET	.FREE_BYTES + 1
+    164  0000 ????				      .byte	$00
+    165  0000 ????				      ENDIF
+    166  0000 ????				      REPEND
+    167  0000 ????				      ENDM
+    168  0000 ????
+    169  0000 ????
+    170  0000 ????						; EOF
+------- FILE PacMan.asm
+      4  0000 ????
+      5  0000 ????						;==================================================================================
+      6  0000 ????						; Program Definitions
+      7  0000 ????						;==================================================================================
+      8  0000 ????
+      9  0000 ????	       00 0b	   SPRITE_HEIGHT =	11
+     10  0000 ????	       00 14	   TIMER_LIMIT =	20
+     11  0000 ????
+     12  0000 ????						;==================================================================================
+     13  0000 ????						; Program Variables
+     14  0000 ????						;==================================================================================
+     15  0000 ????
+     16 U008b ????				      SEG.U	Variables
+     17 U0080					      ORG	$80
+     18 U0080
+     19 U0080		       00	   PS_temp    ds	1
+     20 U0081
+     21 U0081		       00 00	   SpriteAddrPtr ds	2
+     22 U0083		       00	   SpriteXPos ds	1
+     23 U0084		       00	   SpriteYPos ds	1
+     24 U0085
+     25 U0085		       00	   ScoreTens  ds	1
+     26 U0086		       00	   ScoreOnes  ds	1
+     27 U0087		       00	   TensOffset ds	1
+     28 U0088		       00	   OnesOffset ds	1
+     29 U0089		       00	   ScoreDisplayTemp ds	1
+     30 U008a
+     31 U008a		       00	   TimerCounter ds	1
+     32 U008b
+     33 U008b							;==================================================================================
+     34 U008b							; Program Initialization
+     35 U008b							;==================================================================================
+     36 U008b
+     37  f6ee ????				      SEG	Executable
+     38  f000					      ORG	$F000
+     39  f000
+     40  f000				   Reset
+     41  f000				   ClearMemory
+     42  f000		       a2 00		      LDX	#0
+     43  f002		       9a		      TXS
+     44  f003		       48		      PHA
+     45  f004		       8a		      TXA
+     46  f005
+     47  f005				   ClearMemoryLoop
+     48  f005		       48		      PHA
+     49  f006		       ca		      DEX
+     50  f007		       d0 fc		      BNE	ClearMemoryLoop
+     51  f009
+     52  f009		       20 c4 f0 	      JSR	InitVariables
+     53  f00c
+     54  f00c							;==================================================================================
+     55  f00c							; Main Loop
+     56  f00c							;==================================================================================
+     57  f00c
+     58  f00c				   Main
+     59  f00c		       20 1b f0 	      JSR	HandleVSync
+     60  f00f		       20 2a f0 	      JSR	HandleVBlank
+     61  f012		       20 40 f0 	      JSR	MainKernel
+     62  f015		       20 86 f0 	      JSR	Overscan
+     63  f018		       4c 0c f0 	      JMP	Main
+     64  f01b
+     65  f01b							;==================================================================================
+     66  f01b							; HandleVSync
+     67  f01b							;==================================================================================
+     68  f01b
+     69  f01b				   HandleVSync
+     70  f01b		       a9 00		      LDA	#0
+     71  f01d		       85 01		      STA	VBLANK
+     72  f01f		       a9 02		      LDA	#2
+     73  f021		       85 00		      STA	VSYNC
+     74  f023
+     75  f023				   VSyncLoop
+     76  f023		       85 02		      STA	WSYNC
+     77  f025		       85 02		      STA	WSYNC
+     78  f027		       85 02		      STA	WSYNC
+     79  f029
+     80  f029		       60		      RTS
+     81  f02a
+     82  f02a							;==================================================================================
+     83  f02a							; HandleVBlank
+     84  f02a							; Handle Part of Game Logic
+     85  f02a							;==================================================================================
+     86  f02a
+     87  f02a				   HandleVBlank
+     88  f02a		       a9 00		      LDA	#0
+     89  f02c		       85 00		      STA	VSYNC
+     90  f02e		       a9 42		      LDA	#%01000010
+     91  f030		       85 01		      STA	VBLANK
+     92  f032
+     93  f032		       20 33 f1 	      JSR	GetControllerInputs
+     94  f035		       20 2c f1 	      JSR	UpdateStuff
+     95  f038
+     96  f038		       a2 25		      LDX	#37
+     97  f03a				   VBlankLoop
+     98  f03a		       85 02		      STA	WSYNC
+     99  f03c		       ca		      DEX
+    100  f03d		       d0 fb		      BNE	VBlankLoop
+    101  f03f
+    102  f03f		       60		      RTS
+    103  f040
+    104  f040							;==================================================================================
+    105  f040							; MainKernel
+    106  f040							;==================================================================================
+    107  f040
+    108  f040				   MainKernel
+    109  f040		       a9 00		      LDA	#0
+    110  f042		       85 01		      STA	VBLANK
+    111  f044
+    112  f044		       20 f0 f0 	      JSR	PositionSpriteX
+    113  f047
+    114  f047		       a2 bf		      LDX	#191
+    115  f049
+    116  f049				   MainFrameLoop
+    117  f049							; Load First Playfield
+    118  f049		       bd a5 f1 	      LDA	MainBoard_STRIP_0,x
+    119  f04c		       85 0d		      STA	PF0
+    120  f04e
+    121  f04e		       bd 65 f2 	      LDA	MainBoard_STRIP_1,x
+    122  f051		       85 0e		      STA	PF1
+    123  f053
+    124  f053		       bd 25 f3 	      LDA	MainBoard_STRIP_2,x
+    125  f056		       85 0f		      STA	PF2
+    126  f058
+    127  f058							; Load Second Playfield
+    128  f058		       bd e5 f3 	      LDA	MainBoard_STRIP_3,x
+    129  f05b		       85 0d		      STA	PF0
+    130  f05d
+    131  f05d		       bd a5 f4 	      LDA	MainBoard_STRIP_4,x
+    132  f060		       85 0e		      STA	PF1
+    133  f062
+    134  f062		       bd 65 f5 	      LDA	MainBoard_STRIP_5,x
+    135  f065		       85 0f		      STA	PF2
+    136  f067
+    137  f067							; Load Sprite Shape
+    138  f067		       8a		      TXA
+    139  f068		       38		      SEC
+    140  f069		       e5 84		      SBC	SpriteYPos
+    141  f06b		       69 0b		      ADC	#SPRITE_HEIGHT
+    142  f06d		       90 05		      BCC	.skipMBDraw3
+    143  f06f		       a8		      TAY
+    144  f070		       b1 81		      LDA	(SpriteAddrPtr),y
+    145  f072		       85 1b		      STA	GRP0
+    146  f074
+    147  f074				   .skipMBDraw3
+    148  f074
+    149  f074		       85 02		      STA	WSYNC
+    150  f076		       ca		      DEX
+    151  f077		       d0 d0		      BNE	MainFrameLoop
+    152  f079
+    153  f079							; Clearing Playfield Registers
+    154  f079		       a9 00		      LDA	#0
+    155  f07b		       85 0d		      STA	PF0
+    156  f07d		       85 0e		      STA	PF1
+    157  f07f		       85 0f		      STA	PF2
+    158  f081
+    159  f081		       85 1b		      STA	GRP0
+    160  f083		       85 1c		      STA	GRP1
+    161  f085
+    162  f085		       60		      RTS
+    163  f086
+    164  f086							;==================================================================================
+    165  f086							; Overscan
+    166  f086							;==================================================================================
+    167  f086
+    168  f086				   Overscan
+    169  f086
+    170  f086		       a9 00		      LDA	#0
+    171  f088		       85 0e		      STA	PF1
+    172  f08a
+    173  f08a							; Calculate Tens Offset
+    174  f08a		       a6 85		      LDX	ScoreTens
+    175  f08c		       bd 8f f1 	      LDA	MultBy20,x
+    176  f08f		       85 87		      STA	TensOffset
+    177  f091
+    178  f091							; Calculate Ones Offset
+    179  f091		       a6 86		      LDX	ScoreOnes
+    180  f093		       bd 8f f1 	      LDA	MultBy20,x
+    181  f096		       85 88		      STA	OnesOffset
+    182  f098
+    183  f098		       a2 1d		      LDX	#29
+    184  f09a				   OverscanLoop
+    185  f09a
+    186  f09a							; Is it time to draw?
+    187  f09a		       e0 0a		      CPX	#10
+    188  f09c		       90 1a		      BCC	SmallerThan9
+    189  f09e
+    190  f09e							; Time to draw
+    191  f09e		       8a		      TXA
+    192  f09f		       e9 0a		      SBC	#10
+    193  f0a1		       65 87		      ADC	TensOffset
+    194  f0a3		       a8		      TAY
+    195  f0a4		       b9 25 f6 	      LDA	BottomData,y
+    196  f0a7		       85 1b		      STA	GRP0
+    197  f0a9
+    198  f0a9		       8a		      TXA
+    199  f0aa		       e9 09		      SBC	#9
+    200  f0ac		       65 88		      ADC	OnesOffset
+    201  f0ae		       a8		      TAY
+    202  f0af		       b9 25 f6 	      LDA	BottomData,y
+    203  f0b2		       85 1c		      STA	GRP1
+    204  f0b4
+    205  f0b4		       85 10		      STA	RESP0
+    206  f0b6		       85 11		      STA	RESP1
+    207  f0b8
+    208  f0b8				   SmallerThan9
+    209  f0b8		       85 02		      STA	WSYNC
+    210  f0ba		       ca		      DEX
+    211  f0bb		       d0 dd		      BNE	OverscanLoop
+    212  f0bd
+    213  f0bd							; Clear Player Registers
+    214  f0bd		       a9 00		      LDA	#0
+    215  f0bf		       85 1b		      STA	GRP0
+    216  f0c1		       85 1c		      STA	GRP1
+    217  f0c3		       60		      RTS
+    218  f0c4
+    219  f0c4							;==================================================================================
+    220  f0c4							; InitVariables
+    221  f0c4							;==================================================================================
+    222  f0c4
+    223  f0c4				   InitVariables
+    224  f0c4							; Initialize BG Color and PF Color
+    225  f0c4		       a9 84		      LDA	#$84
+    226  f0c6		       85 09		      STA	COLUBK
+    227  f0c8		       a9 1c		      LDA	#$1C
+    228  f0ca		       85 08		      STA	COLUPF
+    229  f0cc
+    230  f0cc							; Initialize Player Color and Pattern
+    231  f0cc		       a9 56		      LDA	#$56
+    232  f0ce		       85 06		      STA	COLUP0
+    233  f0d0
+    234  f0d0							; Initialize Variables
+    235  f0d0
+    236  f0d0							; SpriteXPos
+    237  f0d0		       a9 7d		      LDA	#125
+    238  f0d2		       85 83		      STA	SpriteXPos
+    239  f0d4
+    240  f0d4							; SpriteYPos
+    241  f0d4		       a9 69		      LDA	#105
+    242  f0d6		       85 84		      STA	SpriteYPos
+    243  f0d8
+    244  f0d8							; Timer Counter
+    245  f0d8		       a9 00		      LDA	#0
+    246  f0da		       85 8a		      STA	TimerCounter
+    247  f0dc
+    248  f0dc							; Score
+    249  f0dc		       a9 07		      LDA	#7
+    250  f0de		       85 85		      STA	ScoreTens
+    251  f0e0		       85 86		      STA	ScoreOnes
+    252  f0e2
+    253  f0e2							; Set Controller Inputs
+    254  f0e2		       a9 00		      LDA	#0
+    255  f0e4		       8d 81 02 	      STA	SWACNT
+    256  f0e7
+    257  f0e7							; SpriteDataPointer
+    258  f0e7		       a9 9a		      LDA	#<Sprite0Data
+    259  f0e9		       85 81		      STA	SpriteAddrPtr
+    260  f0eb		       a9 f1		      LDA	#>Sprite0Data
+    261  f0ed		       85 82		      STA	SpriteAddrPtr+1
+    262  f0ef
+    263  f0ef		       60		      RTS
+    264  f0f0
+    265  f0f0							;==================================================================================
+    266  f0f0							; PositionSpriteX - Subroutine to position sprite
+    267  f0f0							;==================================================================================
+    268  f0f0
+    269  f0f0				   PositionSpriteX
+    270  f0f0		       85 02		      STA	WSYNC
+    271  f0f2		       85 2b		      STA	HMCLR	; clear any previous movement
+    272  f0f4
+    273  f0f4		       a2 01		      LDX	#1	; sprite index
+    274  f0f6
+    275  f0f6				   PosSP
+    276  f0f6
+    277  f0f6		       b5 82		      LDA	SpriteXPos-1,x
+    278  f0f8		       a8		      TAY
+    279  f0f9
+    280  f0f9							; Divide by 16
+    281  f0f9		       4a		      LSR
+    282  f0fa		       4a		      LSR
+    283  f0fb		       4a		      LSR
+    284  f0fc		       4a		      LSR
+    285  f0fd		       85 80		      STA	PS_temp
+    286  f0ff
+    287  f0ff		       98		      TYA
+    288  f100		       29 0f		      AND	#15
+    289  f102
+    290  f102		       18		      CLC
+    291  f103
+    292  f103		       65 80		      ADC	PS_temp
+    293  f105		       a4 80		      LDY	PS_temp
+    294  f107
+    295  f107		       c9 0f		      CMP	#15
+    296  f109		       90 03		      BCC	NH
+    297  f10b		       e9 0f		      SBC	#15
+    298  f10d		       c8		      INY
+    299  f10e
+    300  f10e				   NH
+    301  f10e							; Use remainder for fine adjustment
+    302  f10e		       49 07		      EOR	#7
+    303  f110		       0a		      ASL
+    304  f111		       0a		      ASL
+    305  f112		       0a		      ASL
+    306  f113		       0a		      ASL
+    307  f114
+    308  f114		       95 1f		      STA	HMP0-1,x	; fine movement
+    309  f116		       85 02		      STA	WSYNC
+    310  f118
+    311  f118		       20 2b f1 	      JSR	Ret	; just a 12 cycle delay
+    312  f11b		       24 00		      BIT	0	; 15 cycles = 3 loops :)
+    313  f11d
+    314  f11d
+    315  f11d				   Jiggle
+    316  f11d		       88		      dey
+    317  f11e		       10 fd		      bpl	Jiggle
+    318  f120
+    319  f120		       95 0f		      sta	RESP0-1,x
+    320  f122
+    321  f122		       ca		      dex
+    322  f123		       d0 d1		      bne	PosSP
+    323  f125
+    324  f125		       85 02		      sta	WSYNC
+    325  f127		       85 2a		      sta	HMOVE
+    326  f129		       85 02		      sta	WSYNC
+    327  f12b
+    328  f12b				   Ret
+    329  f12b		       60		      RTS
+    330  f12c
+    331  f12c							;==================================================================================
+    332  f12c							; UpdateStuff
+    333  f12c							;==================================================================================
+    334  f12c
+    335  f12c				   UpdateStuff
+    336  f12c							; Update Sprite X Pos
+    337  f12c							;INC SpriteXPos
+    338  f12c
+    339  f12c							; Update Sprite Y Pos
+    340  f12c							;INC SpriteYPos
+    341  f12c
+    342  f12c							; Update Timer
+    343  f12c		       20 5f f1 	      JSR	UpdateTimer
+    344  f12f
+    345  f12f							; Increase Score
+    346  f12f		       20 6f f1 	      JSR	UpdateScore
+    347  f132
+    348  f132		       60		      RTS
+    349  f133
+    350  f133							;==================================================================================
+    351  f133							; GetControllerInputs
+    352  f133							;==================================================================================
+    353  f133
+    354  f133				   GetControllerInputs
+    355  f133		       ae 80 02 	      LDX	SWCHA
+    356  f136
+    357  f136							; Check Right Input
+    358  f136		       8a		      TXA
+    359  f137		       29 80		      AND	#%10000000
+    360  f139		       f0 12		      BEQ	RightInput
+    361  f13b
+    362  f13b							; Check Left Input
+    363  f13b		       8a		      TXA
+    364  f13c		       29 40		      AND	#%01000000
+    365  f13e		       f0 12		      BEQ	LeftInput
+    366  f140
+    367  f140							; Check Down Input
+    368  f140		       8a		      TXA
+    369  f141		       29 20		      AND	#%00100000
+    370  f143		       f0 12		      BEQ	DownInput
+    371  f145
+    372  f145							; Check Up Input
+    373  f145		       8a		      TXA
+    374  f146		       29 10		      AND	#%00010000
+    375  f148		       f0 12		      BEQ	UpInput
+    376  f14a
+    377  f14a							; No Input Detected
+    378  f14a		       4c 5e f1 	      JMP	ControllerRet
+    379  f14d
+    380  f14d				   RightInput
+    381  f14d		       e6 83		      INC	SpriteXPos
+    382  f14f		       4c 5e f1 	      JMP	ControllerRet
+    383  f152
+    384  f152				   LeftInput
+    385  f152		       c6 83		      DEC	SpriteXPos
+    386  f154		       4c 5e f1 	      JMP	ControllerRet
+    387  f157
+    388  f157				   DownInput
+    389  f157		       c6 84		      DEC	SpriteYPos
+    390  f159		       4c 5e f1 	      JMP	ControllerRet
+    391  f15c
+    392  f15c				   UpInput
+    393  f15c		       e6 84		      INC	SpriteYPos
+    394  f15e
+    395  f15e				   ControllerRet
+    396  f15e		       60		      RTS
+    397  f15f
+    398  f15f							;==================================================================================
+    399  f15f							; UpdateTimer
+    400  f15f							;==================================================================================
+    401  f15f
+    402  f15f				   UpdateTimer
+    403  f15f		       a5 8a		      LDA	TimerCounter
+    404  f161		       c9 00		      CMP	#0
+    405  f163		       d0 07		      BNE	DidntReachLimit
+    406  f165
+    407  f165				   ReachedLimit
+    408  f165		       a9 14		      LDA	#TIMER_LIMIT
+    409  f167		       85 8a		      STA	TimerCounter
+    410  f169		       4c 6e f1 	      JMP	TimerRet
+    411  f16c
+    412  f16c				   DidntReachLimit
+    413  f16c		       c6 8a		      DEC	TimerCounter
+    414  f16e
+    415  f16e				   TimerRet
+    416  f16e		       60		      RTS
+    417  f16f
+    418  f16f							;==================================================================================
+    419  f16f							; UpdateScore
+    420  f16f							;==================================================================================
+    421  f16f
+    422  f16f				   UpdateScore
+    423  f16f							; Check If Timer == 0
+    424  f16f		       60		      RTS
+    425  f170		       a5 8a		      LDA	TimerCounter
+    426  f172		       c9 00		      CMP	#0
+    427  f174		       d0 18		      BNE	NotYet10
+    428  f176
+    429  f176							; Increase Ones
+    430  f176		       e6 86		      INC	ScoreOnes
+    431  f178
+    432  f178							; Check if Ones reached 10
+    433  f178		       a6 86		      LDX	ScoreOnes
+    434  f17a		       e0 0a		      CPX	#10
+    435  f17c		       d0 10		      BNE	NotYet10
+    436  f17e
+    437  f17e				   OnesReached10
+    438  f17e							; Reset Ones and Increase Tens
+    439  f17e		       a2 00		      LDX	#0
+    440  f180		       86 86		      STX	ScoreOnes
+    441  f182		       e6 85		      INC	ScoreTens
+    442  f184
+    443  f184							; Check if Tens reached 10
+    444  f184		       a6 85		      LDX	ScoreTens
+    445  f186		       e0 0a		      CPX	#10
+    446  f188		       d0 04		      BNE	NotYet10
+    447  f18a
+    448  f18a				   TensReached10
+    449  f18a							; Reset Tens
+    450  f18a		       a2 00		      LDX	#0
+    451  f18c		       86 85		      STX	ScoreTens
+    452  f18e
+    453  f18e				   NotYet10
+    454  f18e		       60		      RTS
+    455  f18f
+    456  f18f							;==================================================================================
+    457  f18f							; MultBy20
+    458  f18f							;==================================================================================
+    459  f18f
+    460  f18f				   MultBy20
+    461  f18f		       00 14 28 3c*	      .byte.b	0,20,40,60,80,100,120,140,160,180,200
+    462  f19a
+    463  f19a							;==================================================================================
+    464  f19a							; Sprite Data
+    465  f19a							;==================================================================================
+    466  f19a
+    467  f19a				   Sprite0Data
+    468  f19a		       00		      .byte.b	#%00000000
+    469  f19b		       18		      .byte.b	#%00011000
+    470  f19c		       7e		      .byte.b	#%01111110
+    471  f19d		       ff		      .byte.b	#%11111111
+    472  f19e		       3f		      .byte.b	#%00111111
+    473  f19f		       0f		      .byte.b	#%00001111
+    474  f1a0		       3f		      .byte.b	#%00111111
+    475  f1a1		       ff		      .byte.b	#%11111111
+    476  f1a2		       7e		      .byte.b	#%01111110
+    477  f1a3		       18		      .byte.b	#%00011000
+    478  f1a4		       00		      .byte.b	#%00000000
+    479  f1a5
+    480  f1a5							;==================================================================================
+    481  f1a5							; Board Data
+    482  f1a5							;==================================================================================
+    483  f1a5
+------- FILE MainBoard.asm LEVEL 2 PASS 2
+      0  f1a5					      include	"MainBoard.asm"
+      1  f1a5				   MainBoard
+      2  f1a5
+      3  f1a5				   MainBoard_STRIP_0
+      4  f1a5		       50		      .byte.b	80
+      5  f1a6		       00		      .byte.b	0
+      6  f1a7		       f0		      .byte.b	240
+      7  f1a8		       f0		      .byte.b	240
+      8  f1a9		       f0		      .byte.b	240
+      9  f1aa		       f0		      .byte.b	240
+     10  f1ab		       10		      .byte.b	16
+     11  f1ac		       10		      .byte.b	16
+     12  f1ad		       10		      .byte.b	16
+     13  f1ae		       10		      .byte.b	16
+     14  f1af		       10		      .byte.b	16
+     15  f1b0		       10		      .byte.b	16
+     16  f1b1		       10		      .byte.b	16
+     17  f1b2		       10		      .byte.b	16
+     18  f1b3		       10		      .byte.b	16
+     19  f1b4		       10		      .byte.b	16
+     20  f1b5		       10		      .byte.b	16
+     21  f1b6		       10		      .byte.b	16
+     22  f1b7		       10		      .byte.b	16
+     23  f1b8		       10		      .byte.b	16
+     24  f1b9		       10		      .byte.b	16
+     25  f1ba		       10		      .byte.b	16
+     26  f1bb		       10		      .byte.b	16
+     27  f1bc		       10		      .byte.b	16
+     28  f1bd		       10		      .byte.b	16
+     29  f1be		       10		      .byte.b	16
+     30  f1bf		       10		      .byte.b	16
+     31  f1c0		       10		      .byte.b	16
+     32  f1c1		       10		      .byte.b	16
+     33  f1c2		       10		      .byte.b	16
+     34  f1c3		       10		      .byte.b	16
+     35  f1c4		       10		      .byte.b	16
+     36  f1c5		       10		      .byte.b	16
+     37  f1c6		       10		      .byte.b	16
+     38  f1c7		       10		      .byte.b	16
+     39  f1c8		       10		      .byte.b	16
+     40  f1c9		       10		      .byte.b	16
+     41  f1ca		       10		      .byte.b	16
+     42  f1cb		       10		      .byte.b	16
+     43  f1cc		       10		      .byte.b	16
+     44  f1cd		       10		      .byte.b	16
+     45  f1ce		       10		      .byte.b	16
+     46  f1cf		       10		      .byte.b	16
+     47  f1d0		       10		      .byte.b	16
+     48  f1d1		       10		      .byte.b	16
+     49  f1d2		       10		      .byte.b	16
+     50  f1d3		       10		      .byte.b	16
+     51  f1d4		       10		      .byte.b	16
+     52  f1d5		       10		      .byte.b	16
+     53  f1d6		       10		      .byte.b	16
+     54  f1d7		       10		      .byte.b	16
+     55  f1d8		       10		      .byte.b	16
+     56  f1d9		       10		      .byte.b	16
+     57  f1da		       10		      .byte.b	16
+     58  f1db		       10		      .byte.b	16
+     59  f1dc		       10		      .byte.b	16
+     60  f1dd		       10		      .byte.b	16
+     61  f1de		       10		      .byte.b	16
+     62  f1df		       10		      .byte.b	16
+     63  f1e0		       10		      .byte.b	16
+     64  f1e1		       10		      .byte.b	16
+     65  f1e2		       10		      .byte.b	16
+     66  f1e3		       10		      .byte.b	16
+     67  f1e4		       10		      .byte.b	16
+     68  f1e5		       10		      .byte.b	16
+     69  f1e6		       10		      .byte.b	16
+     70  f1e7		       10		      .byte.b	16
+     71  f1e8		       10		      .byte.b	16
+     72  f1e9		       10		      .byte.b	16
+     73  f1ea		       10		      .byte.b	16
+     74  f1eb		       10		      .byte.b	16
+     75  f1ec		       10		      .byte.b	16
+     76  f1ed		       10		      .byte.b	16
+     77  f1ee		       10		      .byte.b	16
+     78  f1ef		       10		      .byte.b	16
+     79  f1f0		       10		      .byte.b	16
+     80  f1f1		       10		      .byte.b	16
+     81  f1f2		       10		      .byte.b	16
+     82  f1f3		       10		      .byte.b	16
+     83  f1f4		       10		      .byte.b	16
+     84  f1f5		       10		      .byte.b	16
+     85  f1f6		       10		      .byte.b	16
+     86  f1f7		       10		      .byte.b	16
+     87  f1f8		       10		      .byte.b	16
+     88  f1f9		       10		      .byte.b	16
+     89  f1fa		       10		      .byte.b	16
+     90  f1fb		       10		      .byte.b	16
+     91  f1fc		       10		      .byte.b	16
+     92  f1fd		       10		      .byte.b	16
+     93  f1fe		       10		      .byte.b	16
+     94  f1ff		       10		      .byte.b	16
+     95  f200		       10		      .byte.b	16
+     96  f201		       10		      .byte.b	16
+     97  f202		       10		      .byte.b	16
+     98  f203		       10		      .byte.b	16
+     99  f204		       10		      .byte.b	16
+    100  f205		       f0		      .byte.b	240
+    101  f206		       10		      .byte.b	16
+    102  f207		       10		      .byte.b	16
+    103  f208		       10		      .byte.b	16
+    104  f209		       10		      .byte.b	16
+    105  f20a		       10		      .byte.b	16
+    106  f20b		       10		      .byte.b	16
+    107  f20c		       10		      .byte.b	16
+    108  f20d		       10		      .byte.b	16
+    109  f20e		       10		      .byte.b	16
+    110  f20f		       10		      .byte.b	16
+    111  f210		       10		      .byte.b	16
+    112  f211		       10		      .byte.b	16
+    113  f212		       10		      .byte.b	16
+    114  f213		       10		      .byte.b	16
+    115  f214		       10		      .byte.b	16
+    116  f215		       10		      .byte.b	16
+    117  f216		       10		      .byte.b	16
+    118  f217		       10		      .byte.b	16
+    119  f218		       10		      .byte.b	16
+    120  f219		       10		      .byte.b	16
+    121  f21a		       10		      .byte.b	16
+    122  f21b		       10		      .byte.b	16
+    123  f21c		       10		      .byte.b	16
+    124  f21d		       10		      .byte.b	16
+    125  f21e		       10		      .byte.b	16
+    126  f21f		       10		      .byte.b	16
+    127  f220		       10		      .byte.b	16
+    128  f221		       10		      .byte.b	16
+    129  f222		       10		      .byte.b	16
+    130  f223		       10		      .byte.b	16
+    131  f224		       10		      .byte.b	16
+    132  f225		       10		      .byte.b	16
+    133  f226		       10		      .byte.b	16
+    134  f227		       10		      .byte.b	16
+    135  f228		       10		      .byte.b	16
+    136  f229		       10		      .byte.b	16
+    137  f22a		       10		      .byte.b	16
+    138  f22b		       10		      .byte.b	16
+    139  f22c		       10		      .byte.b	16
+    140  f22d		       10		      .byte.b	16
+    141  f22e		       10		      .byte.b	16
+    142  f22f		       10		      .byte.b	16
+    143  f230		       10		      .byte.b	16
+    144  f231		       10		      .byte.b	16
+    145  f232		       10		      .byte.b	16
+    146  f233		       10		      .byte.b	16
+    147  f234		       10		      .byte.b	16
+    148  f235		       10		      .byte.b	16
+    149  f236		       10		      .byte.b	16
+    150  f237		       10		      .byte.b	16
+    151  f238		       10		      .byte.b	16
+    152  f239		       10		      .byte.b	16
+    153  f23a		       10		      .byte.b	16
+    154  f23b		       10		      .byte.b	16
+    155  f23c		       10		      .byte.b	16
+    156  f23d		       10		      .byte.b	16
+    157  f23e		       10		      .byte.b	16
+    158  f23f		       10		      .byte.b	16
+    159  f240		       10		      .byte.b	16
+    160  f241		       10		      .byte.b	16
+    161  f242		       10		      .byte.b	16
+    162  f243		       10		      .byte.b	16
+    163  f244		       10		      .byte.b	16
+    164  f245		       10		      .byte.b	16
+    165  f246		       10		      .byte.b	16
+    166  f247		       10		      .byte.b	16
+    167  f248		       10		      .byte.b	16
+    168  f249		       10		      .byte.b	16
+    169  f24a		       10		      .byte.b	16
+    170  f24b		       10		      .byte.b	16
+    171  f24c		       10		      .byte.b	16
+    172  f24d		       10		      .byte.b	16
+    173  f24e		       10		      .byte.b	16
+    174  f24f		       10		      .byte.b	16
+    175  f250		       10		      .byte.b	16
+    176  f251		       10		      .byte.b	16
+    177  f252		       10		      .byte.b	16
+    178  f253		       10		      .byte.b	16
+    179  f254		       10		      .byte.b	16
+    180  f255		       10		      .byte.b	16
+    181  f256		       10		      .byte.b	16
+    182  f257		       10		      .byte.b	16
+    183  f258		       10		      .byte.b	16
+    184  f259		       10		      .byte.b	16
+    185  f25a		       10		      .byte.b	16
+    186  f25b		       10		      .byte.b	16
+    187  f25c		       10		      .byte.b	16
+    188  f25d		       10		      .byte.b	16
+    189  f25e		       10		      .byte.b	16
+    190  f25f		       f0		      .byte.b	240
+    191  f260		       f0		      .byte.b	240
+    192  f261		       f0		      .byte.b	240
+    193  f262		       f0		      .byte.b	240
+    194  f263		       00		      .byte.b	0
+    195  f264		       00		      .byte.b	0
+    196  f265				   MainBoard_STRIP_1
+    197  f265		       aa		      .byte.b	170
+    198  f266		       00		      .byte.b	0
+    199  f267		       ff		      .byte.b	255
+    200  f268		       ff		      .byte.b	255
+    201  f269		       ff		      .byte.b	255
+    202  f26a		       ff		      .byte.b	255
+    203  f26b		       10		      .byte.b	16
+    204  f26c		       10		      .byte.b	16
+    205  f26d		       10		      .byte.b	16
+    206  f26e		       10		      .byte.b	16
+    207  f26f		       10		      .byte.b	16
+    208  f270		       10		      .byte.b	16
+    209  f271		       10		      .byte.b	16
+    210  f272		       10		      .byte.b	16
+    211  f273		       10		      .byte.b	16
+    212  f274		       10		      .byte.b	16
+    213  f275		       10		      .byte.b	16
+    214  f276		       10		      .byte.b	16
+    215  f277		       10		      .byte.b	16
+    216  f278		       10		      .byte.b	16
+    217  f279		       10		      .byte.b	16
+    218  f27a		       10		      .byte.b	16
+    219  f27b		       10		      .byte.b	16
+    220  f27c		       10		      .byte.b	16
+    221  f27d		       10		      .byte.b	16
+    222  f27e		       10		      .byte.b	16
+    223  f27f		       10		      .byte.b	16
+    224  f280		       10		      .byte.b	16
+    225  f281		       10		      .byte.b	16
+    226  f282		       10		      .byte.b	16
+    227  f283		       10		      .byte.b	16
+    228  f284		       10		      .byte.b	16
+    229  f285		       10		      .byte.b	16
+    230  f286		       10		      .byte.b	16
+    231  f287		       10		      .byte.b	16
+    232  f288		       10		      .byte.b	16
+    233  f289		       10		      .byte.b	16
+    234  f28a		       10		      .byte.b	16
+    235  f28b		       10		      .byte.b	16
+    236  f28c		       10		      .byte.b	16
+    237  f28d		       10		      .byte.b	16
+    238  f28e		       10		      .byte.b	16
+    239  f28f		       10		      .byte.b	16
+    240  f290		       10		      .byte.b	16
+    241  f291		       10		      .byte.b	16
+    242  f292		       10		      .byte.b	16
+    243  f293		       10		      .byte.b	16
+    244  f294		       10		      .byte.b	16
+    245  f295		       10		      .byte.b	16
+    246  f296		       10		      .byte.b	16
+    247  f297		       10		      .byte.b	16
+    248  f298		       10		      .byte.b	16
+    249  f299		       10		      .byte.b	16
+    250  f29a		       10		      .byte.b	16
+    251  f29b		       10		      .byte.b	16
+    252  f29c		       10		      .byte.b	16
+    253  f29d		       10		      .byte.b	16
+    254  f29e		       10		      .byte.b	16
+    255  f29f		       10		      .byte.b	16
+    256  f2a0		       10		      .byte.b	16
+    257  f2a1		       10		      .byte.b	16
+    258  f2a2		       10		      .byte.b	16
+    259  f2a3		       10		      .byte.b	16
+    260  f2a4		       10		      .byte.b	16
+    261  f2a5		       10		      .byte.b	16
+    262  f2a6		       10		      .byte.b	16
+    263  f2a7		       10		      .byte.b	16
+    264  f2a8		       10		      .byte.b	16
+    265  f2a9		       10		      .byte.b	16
+    266  f2aa		       10		      .byte.b	16
+    267  f2ab		       10		      .byte.b	16
+    268  f2ac		       10		      .byte.b	16
+    269  f2ad		       10		      .byte.b	16
+    270  f2ae		       10		      .byte.b	16
+    271  f2af		       10		      .byte.b	16
+    272  f2b0		       10		      .byte.b	16
+    273  f2b1		       10		      .byte.b	16
+    274  f2b2		       10		      .byte.b	16
+    275  f2b3		       10		      .byte.b	16
+    276  f2b4		       10		      .byte.b	16
+    277  f2b5		       10		      .byte.b	16
+    278  f2b6		       10		      .byte.b	16
+    279  f2b7		       10		      .byte.b	16
+    280  f2b8		       10		      .byte.b	16
+    281  f2b9		       10		      .byte.b	16
+    282  f2ba		       10		      .byte.b	16
+    283  f2bb		       10		      .byte.b	16
+    284  f2bc		       10		      .byte.b	16
+    285  f2bd		       10		      .byte.b	16
+    286  f2be		       10		      .byte.b	16
+    287  f2bf		       10		      .byte.b	16
+    288  f2c0		       10		      .byte.b	16
+    289  f2c1		       10		      .byte.b	16
+    290  f2c2		       10		      .byte.b	16
+    291  f2c3		       10		      .byte.b	16
+    292  f2c4		       10		      .byte.b	16
+    293  f2c5		       ff		      .byte.b	255
+    294  f2c6		       10		      .byte.b	16
+    295  f2c7		       10		      .byte.b	16
+    296  f2c8		       10		      .byte.b	16
+    297  f2c9		       10		      .byte.b	16
+    298  f2ca		       10		      .byte.b	16
+    299  f2cb		       10		      .byte.b	16
+    300  f2cc		       10		      .byte.b	16
+    301  f2cd		       10		      .byte.b	16
+    302  f2ce		       10		      .byte.b	16
+    303  f2cf		       10		      .byte.b	16
+    304  f2d0		       10		      .byte.b	16
+    305  f2d1		       10		      .byte.b	16
+    306  f2d2		       10		      .byte.b	16
+    307  f2d3		       10		      .byte.b	16
+    308  f2d4		       10		      .byte.b	16
+    309  f2d5		       10		      .byte.b	16
+    310  f2d6		       10		      .byte.b	16
+    311  f2d7		       10		      .byte.b	16
+    312  f2d8		       10		      .byte.b	16
+    313  f2d9		       10		      .byte.b	16
+    314  f2da		       10		      .byte.b	16
+    315  f2db		       10		      .byte.b	16
+    316  f2dc		       10		      .byte.b	16
+    317  f2dd		       10		      .byte.b	16
+    318  f2de		       10		      .byte.b	16
+    319  f2df		       10		      .byte.b	16
+    320  f2e0		       10		      .byte.b	16
+    321  f2e1		       10		      .byte.b	16
+    322  f2e2		       10		      .byte.b	16
+    323  f2e3		       10		      .byte.b	16
+    324  f2e4		       10		      .byte.b	16
+    325  f2e5		       10		      .byte.b	16
+    326  f2e6		       10		      .byte.b	16
+    327  f2e7		       10		      .byte.b	16
+    328  f2e8		       10		      .byte.b	16
+    329  f2e9		       10		      .byte.b	16
+    330  f2ea		       10		      .byte.b	16
+    331  f2eb		       10		      .byte.b	16
+    332  f2ec		       10		      .byte.b	16
+    333  f2ed		       10		      .byte.b	16
+    334  f2ee		       10		      .byte.b	16
+    335  f2ef		       10		      .byte.b	16
+    336  f2f0		       10		      .byte.b	16
+    337  f2f1		       10		      .byte.b	16
+    338  f2f2		       10		      .byte.b	16
+    339  f2f3		       10		      .byte.b	16
+    340  f2f4		       10		      .byte.b	16
+    341  f2f5		       10		      .byte.b	16
+    342  f2f6		       10		      .byte.b	16
+    343  f2f7		       10		      .byte.b	16
+    344  f2f8		       10		      .byte.b	16
+    345  f2f9		       10		      .byte.b	16
+    346  f2fa		       10		      .byte.b	16
+    347  f2fb		       10		      .byte.b	16
+    348  f2fc		       10		      .byte.b	16
+    349  f2fd		       10		      .byte.b	16
+    350  f2fe		       10		      .byte.b	16
+    351  f2ff		       10		      .byte.b	16
+    352  f300		       10		      .byte.b	16
+    353  f301		       10		      .byte.b	16
+    354  f302		       10		      .byte.b	16
+    355  f303		       10		      .byte.b	16
+    356  f304		       10		      .byte.b	16
+    357  f305		       10		      .byte.b	16
+    358  f306		       10		      .byte.b	16
+    359  f307		       10		      .byte.b	16
+    360  f308		       10		      .byte.b	16
+    361  f309		       10		      .byte.b	16
+    362  f30a		       10		      .byte.b	16
+    363  f30b		       10		      .byte.b	16
+    364  f30c		       10		      .byte.b	16
+    365  f30d		       10		      .byte.b	16
+    366  f30e		       10		      .byte.b	16
+    367  f30f		       10		      .byte.b	16
+    368  f310		       10		      .byte.b	16
+    369  f311		       10		      .byte.b	16
+    370  f312		       10		      .byte.b	16
+    371  f313		       10		      .byte.b	16
+    372  f314		       10		      .byte.b	16
+    373  f315		       10		      .byte.b	16
+    374  f316		       10		      .byte.b	16
+    375  f317		       10		      .byte.b	16
+    376  f318		       10		      .byte.b	16
+    377  f319		       10		      .byte.b	16
+    378  f31a		       10		      .byte.b	16
+    379  f31b		       10		      .byte.b	16
+    380  f31c		       10		      .byte.b	16
+    381  f31d		       10		      .byte.b	16
+    382  f31e		       10		      .byte.b	16
+    383  f31f		       ff		      .byte.b	255
+    384  f320		       ff		      .byte.b	255
+    385  f321		       ff		      .byte.b	255
+    386  f322		       ff		      .byte.b	255
+    387  f323		       00		      .byte.b	0
+    388  f324		       00		      .byte.b	0
+    389  f325				   MainBoard_STRIP_2
+    390  f325		       00		      .byte.b	0
+    391  f326		       00		      .byte.b	0
+    392  f327		       ff		      .byte.b	255
+    393  f328		       ff		      .byte.b	255
+    394  f329		       ff		      .byte.b	255
+    395  f32a		       ff		      .byte.b	255
+    396  f32b		       08		      .byte.b	8
+    397  f32c		       08		      .byte.b	8
+    398  f32d		       08		      .byte.b	8
+    399  f32e		       08		      .byte.b	8
+    400  f32f		       08		      .byte.b	8
+    401  f330		       08		      .byte.b	8
+    402  f331		       08		      .byte.b	8
+    403  f332		       08		      .byte.b	8
+    404  f333		       08		      .byte.b	8
+    405  f334		       08		      .byte.b	8
+    406  f335		       08		      .byte.b	8
+    407  f336		       08		      .byte.b	8
+    408  f337		       08		      .byte.b	8
+    409  f338		       08		      .byte.b	8
+    410  f339		       08		      .byte.b	8
+    411  f33a		       08		      .byte.b	8
+    412  f33b		       08		      .byte.b	8
+    413  f33c		       08		      .byte.b	8
+    414  f33d		       08		      .byte.b	8
+    415  f33e		       08		      .byte.b	8
+    416  f33f		       08		      .byte.b	8
+    417  f340		       08		      .byte.b	8
+    418  f341		       08		      .byte.b	8
+    419  f342		       08		      .byte.b	8
+    420  f343		       08		      .byte.b	8
+    421  f344		       08		      .byte.b	8
+    422  f345		       08		      .byte.b	8
+    423  f346		       08		      .byte.b	8
+    424  f347		       08		      .byte.b	8
+    425  f348		       08		      .byte.b	8
+    426  f349		       08		      .byte.b	8
+    427  f34a		       08		      .byte.b	8
+    428  f34b		       08		      .byte.b	8
+    429  f34c		       08		      .byte.b	8
+    430  f34d		       08		      .byte.b	8
+    431  f34e		       08		      .byte.b	8
+    432  f34f		       08		      .byte.b	8
+    433  f350		       08		      .byte.b	8
+    434  f351		       08		      .byte.b	8
+    435  f352		       08		      .byte.b	8
+    436  f353		       08		      .byte.b	8
+    437  f354		       08		      .byte.b	8
+    438  f355		       08		      .byte.b	8
+    439  f356		       08		      .byte.b	8
+    440  f357		       08		      .byte.b	8
+    441  f358		       08		      .byte.b	8
+    442  f359		       08		      .byte.b	8
+    443  f35a		       08		      .byte.b	8
+    444  f35b		       08		      .byte.b	8
+    445  f35c		       08		      .byte.b	8
+    446  f35d		       08		      .byte.b	8
+    447  f35e		       08		      .byte.b	8
+    448  f35f		       08		      .byte.b	8
+    449  f360		       08		      .byte.b	8
+    450  f361		       08		      .byte.b	8
+    451  f362		       08		      .byte.b	8
+    452  f363		       08		      .byte.b	8
+    453  f364		       08		      .byte.b	8
+    454  f365		       08		      .byte.b	8
+    455  f366		       08		      .byte.b	8
+    456  f367		       08		      .byte.b	8
+    457  f368		       08		      .byte.b	8
+    458  f369		       08		      .byte.b	8
+    459  f36a		       08		      .byte.b	8
+    460  f36b		       08		      .byte.b	8
+    461  f36c		       08		      .byte.b	8
+    462  f36d		       08		      .byte.b	8
+    463  f36e		       08		      .byte.b	8
+    464  f36f		       08		      .byte.b	8
+    465  f370		       08		      .byte.b	8
+    466  f371		       08		      .byte.b	8
+    467  f372		       08		      .byte.b	8
+    468  f373		       08		      .byte.b	8
+    469  f374		       08		      .byte.b	8
+    470  f375		       08		      .byte.b	8
+    471  f376		       08		      .byte.b	8
+    472  f377		       08		      .byte.b	8
+    473  f378		       08		      .byte.b	8
+    474  f379		       08		      .byte.b	8
+    475  f37a		       08		      .byte.b	8
+    476  f37b		       08		      .byte.b	8
+    477  f37c		       08		      .byte.b	8
+    478  f37d		       08		      .byte.b	8
+    479  f37e		       08		      .byte.b	8
+    480  f37f		       08		      .byte.b	8
+    481  f380		       08		      .byte.b	8
+    482  f381		       08		      .byte.b	8
+    483  f382		       08		      .byte.b	8
+    484  f383		       08		      .byte.b	8
+    485  f384		       08		      .byte.b	8
+    486  f385		       ff		      .byte.b	255
+    487  f386		       08		      .byte.b	8
+    488  f387		       08		      .byte.b	8
+    489  f388		       08		      .byte.b	8
+    490  f389		       08		      .byte.b	8
+    491  f38a		       08		      .byte.b	8
+    492  f38b		       08		      .byte.b	8
+    493  f38c		       08		      .byte.b	8
+    494  f38d		       08		      .byte.b	8
+    495  f38e		       08		      .byte.b	8
+    496  f38f		       08		      .byte.b	8
+    497  f390		       08		      .byte.b	8
+    498  f391		       08		      .byte.b	8
+    499  f392		       08		      .byte.b	8
+    500  f393		       08		      .byte.b	8
+    501  f394		       08		      .byte.b	8
+    502  f395		       08		      .byte.b	8
+    503  f396		       08		      .byte.b	8
+    504  f397		       08		      .byte.b	8
+    505  f398		       08		      .byte.b	8
+    506  f399		       08		      .byte.b	8
+    507  f39a		       08		      .byte.b	8
+    508  f39b		       08		      .byte.b	8
+    509  f39c		       08		      .byte.b	8
+    510  f39d		       08		      .byte.b	8
+    511  f39e		       08		      .byte.b	8
+    512  f39f		       08		      .byte.b	8
+    513  f3a0		       08		      .byte.b	8
+    514  f3a1		       08		      .byte.b	8
+    515  f3a2		       08		      .byte.b	8
+    516  f3a3		       08		      .byte.b	8
+    517  f3a4		       08		      .byte.b	8
+    518  f3a5		       08		      .byte.b	8
+    519  f3a6		       08		      .byte.b	8
+    520  f3a7		       08		      .byte.b	8
+    521  f3a8		       08		      .byte.b	8
+    522  f3a9		       08		      .byte.b	8
+    523  f3aa		       08		      .byte.b	8
+    524  f3ab		       08		      .byte.b	8
+    525  f3ac		       08		      .byte.b	8
+    526  f3ad		       08		      .byte.b	8
+    527  f3ae		       08		      .byte.b	8
+    528  f3af		       08		      .byte.b	8
+    529  f3b0		       08		      .byte.b	8
+    530  f3b1		       08		      .byte.b	8
+    531  f3b2		       08		      .byte.b	8
+    532  f3b3		       08		      .byte.b	8
+    533  f3b4		       08		      .byte.b	8
+    534  f3b5		       08		      .byte.b	8
+    535  f3b6		       08		      .byte.b	8
+    536  f3b7		       08		      .byte.b	8
+    537  f3b8		       08		      .byte.b	8
+    538  f3b9		       08		      .byte.b	8
+    539  f3ba		       08		      .byte.b	8
+    540  f3bb		       08		      .byte.b	8
+    541  f3bc		       08		      .byte.b	8
+    542  f3bd		       08		      .byte.b	8
+    543  f3be		       08		      .byte.b	8
+    544  f3bf		       08		      .byte.b	8
+    545  f3c0		       08		      .byte.b	8
+    546  f3c1		       08		      .byte.b	8
+    547  f3c2		       08		      .byte.b	8
+    548  f3c3		       08		      .byte.b	8
+    549  f3c4		       08		      .byte.b	8
+    550  f3c5		       08		      .byte.b	8
+    551  f3c6		       08		      .byte.b	8
+    552  f3c7		       08		      .byte.b	8
+    553  f3c8		       08		      .byte.b	8
+    554  f3c9		       08		      .byte.b	8
+    555  f3ca		       08		      .byte.b	8
+    556  f3cb		       08		      .byte.b	8
+    557  f3cc		       08		      .byte.b	8
+    558  f3cd		       08		      .byte.b	8
+    559  f3ce		       08		      .byte.b	8
+    560  f3cf		       08		      .byte.b	8
+    561  f3d0		       08		      .byte.b	8
+    562  f3d1		       08		      .byte.b	8
+    563  f3d2		       08		      .byte.b	8
+    564  f3d3		       08		      .byte.b	8
+    565  f3d4		       08		      .byte.b	8
+    566  f3d5		       08		      .byte.b	8
+    567  f3d6		       08		      .byte.b	8
+    568  f3d7		       08		      .byte.b	8
+    569  f3d8		       08		      .byte.b	8
+    570  f3d9		       08		      .byte.b	8
+    571  f3da		       08		      .byte.b	8
+    572  f3db		       08		      .byte.b	8
+    573  f3dc		       08		      .byte.b	8
+    574  f3dd		       08		      .byte.b	8
+    575  f3de		       08		      .byte.b	8
+    576  f3df		       ff		      .byte.b	255
+    577  f3e0		       ff		      .byte.b	255
+    578  f3e1		       ff		      .byte.b	255
+    579  f3e2		       ff		      .byte.b	255
+    580  f3e3		       00		      .byte.b	0
+    581  f3e4		       00		      .byte.b	0
+    582  f3e5				   MainBoard_STRIP_3
+    583  f3e5		       00		      .byte.b	0
+    584  f3e6		       00		      .byte.b	0
+    585  f3e7		       f0		      .byte.b	240
+    586  f3e8		       f0		      .byte.b	240
+    587  f3e9		       f0		      .byte.b	240
+    588  f3ea		       f0		      .byte.b	240
+    589  f3eb		       80		      .byte.b	128
+    590  f3ec		       80		      .byte.b	128
+    591  f3ed		       80		      .byte.b	128
+    592  f3ee		       80		      .byte.b	128
+    593  f3ef		       80		      .byte.b	128
+    594  f3f0		       80		      .byte.b	128
+    595  f3f1		       80		      .byte.b	128
+    596  f3f2		       80		      .byte.b	128
+    597  f3f3		       80		      .byte.b	128
+    598  f3f4		       80		      .byte.b	128
+    599  f3f5		       80		      .byte.b	128
+    600  f3f6		       80		      .byte.b	128
+    601  f3f7		       80		      .byte.b	128
+    602  f3f8		       80		      .byte.b	128
+    603  f3f9		       80		      .byte.b	128
+    604  f3fa		       80		      .byte.b	128
+    605  f3fb		       80		      .byte.b	128
+    606  f3fc		       80		      .byte.b	128
+    607  f3fd		       80		      .byte.b	128
+    608  f3fe		       80		      .byte.b	128
+    609  f3ff		       80		      .byte.b	128
+    610  f400		       80		      .byte.b	128
+    611  f401		       80		      .byte.b	128
+    612  f402		       80		      .byte.b	128
+    613  f403		       80		      .byte.b	128
+    614  f404		       80		      .byte.b	128
+    615  f405		       80		      .byte.b	128
+    616  f406		       80		      .byte.b	128
+    617  f407		       80		      .byte.b	128
+    618  f408		       80		      .byte.b	128
+    619  f409		       80		      .byte.b	128
+    620  f40a		       80		      .byte.b	128
+    621  f40b		       80		      .byte.b	128
+    622  f40c		       80		      .byte.b	128
+    623  f40d		       80		      .byte.b	128
+    624  f40e		       80		      .byte.b	128
+    625  f40f		       80		      .byte.b	128
+    626  f410		       80		      .byte.b	128
+    627  f411		       80		      .byte.b	128
+    628  f412		       80		      .byte.b	128
+    629  f413		       80		      .byte.b	128
+    630  f414		       80		      .byte.b	128
+    631  f415		       80		      .byte.b	128
+    632  f416		       80		      .byte.b	128
+    633  f417		       80		      .byte.b	128
+    634  f418		       80		      .byte.b	128
+    635  f419		       80		      .byte.b	128
+    636  f41a		       80		      .byte.b	128
+    637  f41b		       80		      .byte.b	128
+    638  f41c		       80		      .byte.b	128
+    639  f41d		       80		      .byte.b	128
+    640  f41e		       80		      .byte.b	128
+    641  f41f		       80		      .byte.b	128
+    642  f420		       80		      .byte.b	128
+    643  f421		       80		      .byte.b	128
+    644  f422		       80		      .byte.b	128
+    645  f423		       80		      .byte.b	128
+    646  f424		       80		      .byte.b	128
+    647  f425		       80		      .byte.b	128
+    648  f426		       80		      .byte.b	128
+    649  f427		       80		      .byte.b	128
+    650  f428		       80		      .byte.b	128
+    651  f429		       80		      .byte.b	128
+    652  f42a		       80		      .byte.b	128
+    653  f42b		       80		      .byte.b	128
+    654  f42c		       80		      .byte.b	128
+    655  f42d		       80		      .byte.b	128
+    656  f42e		       80		      .byte.b	128
+    657  f42f		       80		      .byte.b	128
+    658  f430		       80		      .byte.b	128
+    659  f431		       80		      .byte.b	128
+    660  f432		       80		      .byte.b	128
+    661  f433		       80		      .byte.b	128
+    662  f434		       80		      .byte.b	128
+    663  f435		       80		      .byte.b	128
+    664  f436		       80		      .byte.b	128
+    665  f437		       80		      .byte.b	128
+    666  f438		       80		      .byte.b	128
+    667  f439		       80		      .byte.b	128
+    668  f43a		       80		      .byte.b	128
+    669  f43b		       80		      .byte.b	128
+    670  f43c		       80		      .byte.b	128
+    671  f43d		       80		      .byte.b	128
+    672  f43e		       80		      .byte.b	128
+    673  f43f		       80		      .byte.b	128
+    674  f440		       80		      .byte.b	128
+    675  f441		       80		      .byte.b	128
+    676  f442		       80		      .byte.b	128
+    677  f443		       80		      .byte.b	128
+    678  f444		       80		      .byte.b	128
+    679  f445		       f0		      .byte.b	240
+    680  f446		       80		      .byte.b	128
+    681  f447		       80		      .byte.b	128
+    682  f448		       80		      .byte.b	128
+    683  f449		       80		      .byte.b	128
+    684  f44a		       80		      .byte.b	128
+    685  f44b		       80		      .byte.b	128
+    686  f44c		       80		      .byte.b	128
+    687  f44d		       80		      .byte.b	128
+    688  f44e		       80		      .byte.b	128
+    689  f44f		       80		      .byte.b	128
+    690  f450		       80		      .byte.b	128
+    691  f451		       80		      .byte.b	128
+    692  f452		       80		      .byte.b	128
+    693  f453		       80		      .byte.b	128
+    694  f454		       80		      .byte.b	128
+    695  f455		       80		      .byte.b	128
+    696  f456		       80		      .byte.b	128
+    697  f457		       80		      .byte.b	128
+    698  f458		       80		      .byte.b	128
+    699  f459		       80		      .byte.b	128
+    700  f45a		       80		      .byte.b	128
+    701  f45b		       80		      .byte.b	128
+    702  f45c		       80		      .byte.b	128
+    703  f45d		       80		      .byte.b	128
+    704  f45e		       80		      .byte.b	128
+    705  f45f		       80		      .byte.b	128
+    706  f460		       80		      .byte.b	128
+    707  f461		       80		      .byte.b	128
+    708  f462		       80		      .byte.b	128
+    709  f463		       80		      .byte.b	128
+    710  f464		       80		      .byte.b	128
+    711  f465		       80		      .byte.b	128
+    712  f466		       80		      .byte.b	128
+    713  f467		       80		      .byte.b	128
+    714  f468		       80		      .byte.b	128
+    715  f469		       80		      .byte.b	128
+    716  f46a		       80		      .byte.b	128
+    717  f46b		       80		      .byte.b	128
+    718  f46c		       80		      .byte.b	128
+    719  f46d		       80		      .byte.b	128
+    720  f46e		       80		      .byte.b	128
+    721  f46f		       80		      .byte.b	128
+    722  f470		       80		      .byte.b	128
+    723  f471		       80		      .byte.b	128
+    724  f472		       80		      .byte.b	128
+    725  f473		       80		      .byte.b	128
+    726  f474		       80		      .byte.b	128
+    727  f475		       80		      .byte.b	128
+    728  f476		       80		      .byte.b	128
+    729  f477		       80		      .byte.b	128
+    730  f478		       80		      .byte.b	128
+    731  f479		       80		      .byte.b	128
+    732  f47a		       80		      .byte.b	128
+    733  f47b		       80		      .byte.b	128
+    734  f47c		       80		      .byte.b	128
+    735  f47d		       80		      .byte.b	128
+    736  f47e		       80		      .byte.b	128
+    737  f47f		       80		      .byte.b	128
+    738  f480		       80		      .byte.b	128
+    739  f481		       80		      .byte.b	128
+    740  f482		       80		      .byte.b	128
+    741  f483		       80		      .byte.b	128
+    742  f484		       80		      .byte.b	128
+    743  f485		       80		      .byte.b	128
+    744  f486		       80		      .byte.b	128
+    745  f487		       80		      .byte.b	128
+    746  f488		       80		      .byte.b	128
+    747  f489		       80		      .byte.b	128
+    748  f48a		       80		      .byte.b	128
+    749  f48b		       80		      .byte.b	128
+    750  f48c		       80		      .byte.b	128
+    751  f48d		       80		      .byte.b	128
+    752  f48e		       80		      .byte.b	128
+    753  f48f		       80		      .byte.b	128
+    754  f490		       80		      .byte.b	128
+    755  f491		       80		      .byte.b	128
+    756  f492		       80		      .byte.b	128
+    757  f493		       80		      .byte.b	128
+    758  f494		       80		      .byte.b	128
+    759  f495		       80		      .byte.b	128
+    760  f496		       80		      .byte.b	128
+    761  f497		       80		      .byte.b	128
+    762  f498		       80		      .byte.b	128
+    763  f499		       80		      .byte.b	128
+    764  f49a		       80		      .byte.b	128
+    765  f49b		       80		      .byte.b	128
+    766  f49c		       80		      .byte.b	128
+    767  f49d		       80		      .byte.b	128
+    768  f49e		       80		      .byte.b	128
+    769  f49f		       f0		      .byte.b	240
+    770  f4a0		       f0		      .byte.b	240
+    771  f4a1		       f0		      .byte.b	240
+    772  f4a2		       f0		      .byte.b	240
+    773  f4a3		       00		      .byte.b	0
+    774  f4a4		       00		      .byte.b	0
+    775  f4a5				   MainBoard_STRIP_4
+    776  f4a5		       00		      .byte.b	0
+    777  f4a6		       00		      .byte.b	0
+    778  f4a7		       ff		      .byte.b	255
+    779  f4a8		       ff		      .byte.b	255
+    780  f4a9		       ff		      .byte.b	255
+    781  f4aa		       ff		      .byte.b	255
+    782  f4ab		       00		      .byte.b	0
+    783  f4ac		       00		      .byte.b	0
+    784  f4ad		       00		      .byte.b	0
+    785  f4ae		       00		      .byte.b	0
+    786  f4af		       00		      .byte.b	0
+    787  f4b0		       00		      .byte.b	0
+    788  f4b1		       00		      .byte.b	0
+    789  f4b2		       00		      .byte.b	0
+    790  f4b3		       00		      .byte.b	0
+    791  f4b4		       00		      .byte.b	0
+    792  f4b5		       00		      .byte.b	0
+    793  f4b6		       00		      .byte.b	0
+    794  f4b7		       00		      .byte.b	0
+    795  f4b8		       00		      .byte.b	0
+    796  f4b9		       00		      .byte.b	0
+    797  f4ba		       00		      .byte.b	0
+    798  f4bb		       00		      .byte.b	0
+    799  f4bc		       00		      .byte.b	0
+    800  f4bd		       00		      .byte.b	0
+    801  f4be		       00		      .byte.b	0
+    802  f4bf		       00		      .byte.b	0
+    803  f4c0		       00		      .byte.b	0
+    804  f4c1		       00		      .byte.b	0
+    805  f4c2		       00		      .byte.b	0
+    806  f4c3		       00		      .byte.b	0
+    807  f4c4		       00		      .byte.b	0
+    808  f4c5		       00		      .byte.b	0
+    809  f4c6		       00		      .byte.b	0
+    810  f4c7		       00		      .byte.b	0
+    811  f4c8		       00		      .byte.b	0
+    812  f4c9		       00		      .byte.b	0
+    813  f4ca		       00		      .byte.b	0
+    814  f4cb		       00		      .byte.b	0
+    815  f4cc		       00		      .byte.b	0
+    816  f4cd		       00		      .byte.b	0
+    817  f4ce		       00		      .byte.b	0
+    818  f4cf		       00		      .byte.b	0
+    819  f4d0		       00		      .byte.b	0
+    820  f4d1		       00		      .byte.b	0
+    821  f4d2		       00		      .byte.b	0
+    822  f4d3		       00		      .byte.b	0
+    823  f4d4		       00		      .byte.b	0
+    824  f4d5		       00		      .byte.b	0
+    825  f4d6		       00		      .byte.b	0
+    826  f4d7		       00		      .byte.b	0
+    827  f4d8		       00		      .byte.b	0
+    828  f4d9		       00		      .byte.b	0
+    829  f4da		       00		      .byte.b	0
+    830  f4db		       00		      .byte.b	0
+    831  f4dc		       00		      .byte.b	0
+    832  f4dd		       00		      .byte.b	0
+    833  f4de		       00		      .byte.b	0
+    834  f4df		       00		      .byte.b	0
+    835  f4e0		       00		      .byte.b	0
+    836  f4e1		       00		      .byte.b	0
+    837  f4e2		       00		      .byte.b	0
+    838  f4e3		       00		      .byte.b	0
+    839  f4e4		       00		      .byte.b	0
+    840  f4e5		       00		      .byte.b	0
+    841  f4e6		       00		      .byte.b	0
+    842  f4e7		       00		      .byte.b	0
+    843  f4e8		       00		      .byte.b	0
+    844  f4e9		       00		      .byte.b	0
+    845  f4ea		       00		      .byte.b	0
+    846  f4eb		       00		      .byte.b	0
+    847  f4ec		       00		      .byte.b	0
+    848  f4ed		       00		      .byte.b	0
+    849  f4ee		       00		      .byte.b	0
+    850  f4ef		       00		      .byte.b	0
+    851  f4f0		       00		      .byte.b	0
+    852  f4f1		       00		      .byte.b	0
+    853  f4f2		       00		      .byte.b	0
+    854  f4f3		       00		      .byte.b	0
+    855  f4f4		       00		      .byte.b	0
+    856  f4f5		       00		      .byte.b	0
+    857  f4f6		       00		      .byte.b	0
+    858  f4f7		       00		      .byte.b	0
+    859  f4f8		       00		      .byte.b	0
+    860  f4f9		       00		      .byte.b	0
+    861  f4fa		       00		      .byte.b	0
+    862  f4fb		       00		      .byte.b	0
+    863  f4fc		       00		      .byte.b	0
+    864  f4fd		       00		      .byte.b	0
+    865  f4fe		       00		      .byte.b	0
+    866  f4ff		       00		      .byte.b	0
+    867  f500		       00		      .byte.b	0
+    868  f501		       00		      .byte.b	0
+    869  f502		       00		      .byte.b	0
+    870  f503		       00		      .byte.b	0
+    871  f504		       00		      .byte.b	0
+    872  f505		       00		      .byte.b	0
+    873  f506		       00		      .byte.b	0
+    874  f507		       00		      .byte.b	0
+    875  f508		       00		      .byte.b	0
+    876  f509		       00		      .byte.b	0
+    877  f50a		       00		      .byte.b	0
+    878  f50b		       00		      .byte.b	0
+    879  f50c		       00		      .byte.b	0
+    880  f50d		       00		      .byte.b	0
+    881  f50e		       00		      .byte.b	0
+    882  f50f		       00		      .byte.b	0
+    883  f510		       00		      .byte.b	0
+    884  f511		       00		      .byte.b	0
+    885  f512		       00		      .byte.b	0
+    886  f513		       00		      .byte.b	0
+    887  f514		       00		      .byte.b	0
+    888  f515		       00		      .byte.b	0
+    889  f516		       00		      .byte.b	0
+    890  f517		       00		      .byte.b	0
+    891  f518		       00		      .byte.b	0
+    892  f519		       00		      .byte.b	0
+    893  f51a		       00		      .byte.b	0
+    894  f51b		       00		      .byte.b	0
+    895  f51c		       00		      .byte.b	0
+    896  f51d		       00		      .byte.b	0
+    897  f51e		       00		      .byte.b	0
+    898  f51f		       00		      .byte.b	0
+    899  f520		       00		      .byte.b	0
+    900  f521		       00		      .byte.b	0
+    901  f522		       00		      .byte.b	0
+    902  f523		       00		      .byte.b	0
+    903  f524		       00		      .byte.b	0
+    904  f525		       00		      .byte.b	0
+    905  f526		       00		      .byte.b	0
+    906  f527		       00		      .byte.b	0
+    907  f528		       00		      .byte.b	0
+    908  f529		       00		      .byte.b	0
+    909  f52a		       00		      .byte.b	0
+    910  f52b		       00		      .byte.b	0
+    911  f52c		       00		      .byte.b	0
+    912  f52d		       00		      .byte.b	0
+    913  f52e		       00		      .byte.b	0
+    914  f52f		       00		      .byte.b	0
+    915  f530		       00		      .byte.b	0
+    916  f531		       00		      .byte.b	0
+    917  f532		       00		      .byte.b	0
+    918  f533		       00		      .byte.b	0
+    919  f534		       00		      .byte.b	0
+    920  f535		       00		      .byte.b	0
+    921  f536		       00		      .byte.b	0
+    922  f537		       00		      .byte.b	0
+    923  f538		       00		      .byte.b	0
+    924  f539		       00		      .byte.b	0
+    925  f53a		       00		      .byte.b	0
+    926  f53b		       00		      .byte.b	0
+    927  f53c		       00		      .byte.b	0
+    928  f53d		       00		      .byte.b	0
+    929  f53e		       00		      .byte.b	0
+    930  f53f		       00		      .byte.b	0
+    931  f540		       00		      .byte.b	0
+    932  f541		       00		      .byte.b	0
+    933  f542		       00		      .byte.b	0
+    934  f543		       00		      .byte.b	0
+    935  f544		       00		      .byte.b	0
+    936  f545		       00		      .byte.b	0
+    937  f546		       00		      .byte.b	0
+    938  f547		       00		      .byte.b	0
+    939  f548		       00		      .byte.b	0
+    940  f549		       00		      .byte.b	0
+    941  f54a		       00		      .byte.b	0
+    942  f54b		       00		      .byte.b	0
+    943  f54c		       00		      .byte.b	0
+    944  f54d		       00		      .byte.b	0
+    945  f54e		       00		      .byte.b	0
+    946  f54f		       00		      .byte.b	0
+    947  f550		       00		      .byte.b	0
+    948  f551		       00		      .byte.b	0
+    949  f552		       00		      .byte.b	0
+    950  f553		       00		      .byte.b	0
+    951  f554		       00		      .byte.b	0
+    952  f555		       00		      .byte.b	0
+    953  f556		       00		      .byte.b	0
+    954  f557		       00		      .byte.b	0
+    955  f558		       00		      .byte.b	0
+    956  f559		       00		      .byte.b	0
+    957  f55a		       00		      .byte.b	0
+    958  f55b		       00		      .byte.b	0
+    959  f55c		       00		      .byte.b	0
+    960  f55d		       00		      .byte.b	0
+    961  f55e		       00		      .byte.b	0
+    962  f55f		       ff		      .byte.b	255
+    963  f560		       ff		      .byte.b	255
+    964  f561		       ff		      .byte.b	255
+    965  f562		       ff		      .byte.b	255
+    966  f563		       00		      .byte.b	0
+    967  f564		       00		      .byte.b	0
+    968  f565				   MainBoard_STRIP_5
+    969  f565		       00		      .byte.b	0
+    970  f566		       00		      .byte.b	0
+    971  f567		       ff		      .byte.b	255
+    972  f568		       ff		      .byte.b	255
+    973  f569		       ff		      .byte.b	255
+    974  f56a		       ff		      .byte.b	255
+    975  f56b		       80		      .byte.b	128
+    976  f56c		       80		      .byte.b	128
+    977  f56d		       80		      .byte.b	128
+    978  f56e		       80		      .byte.b	128
+    979  f56f		       80		      .byte.b	128
+    980  f570		       80		      .byte.b	128
+    981  f571		       80		      .byte.b	128
+    982  f572		       80		      .byte.b	128
+    983  f573		       80		      .byte.b	128
+    984  f574		       80		      .byte.b	128
+    985  f575		       c0		      .byte.b	192
+    986  f576		       80		      .byte.b	128
+    987  f577		       80		      .byte.b	128
+    988  f578		       80		      .byte.b	128
+    989  f579		       80		      .byte.b	128
+    990  f57a		       80		      .byte.b	128
+    991  f57b		       80		      .byte.b	128
+    992  f57c		       80		      .byte.b	128
+    993  f57d		       80		      .byte.b	128
+    994  f57e		       80		      .byte.b	128
+    995  f57f		       c0		      .byte.b	192
+    996  f580		       80		      .byte.b	128
+    997  f581		       80		      .byte.b	128
+    998  f582		       80		      .byte.b	128
+    999  f583		       80		      .byte.b	128
+   1000  f584		       80		      .byte.b	128
+   1001  f585		       80		      .byte.b	128
+   1002  f586		       80		      .byte.b	128
+   1003  f587		       80		      .byte.b	128
+   1004  f588		       80		      .byte.b	128
+   1005  f589		       c0		      .byte.b	192
+   1006  f58a		       80		      .byte.b	128
+   1007  f58b		       80		      .byte.b	128
+   1008  f58c		       80		      .byte.b	128
+   1009  f58d		       80		      .byte.b	128
+   1010  f58e		       80		      .byte.b	128
+   1011  f58f		       80		      .byte.b	128
+   1012  f590		       80		      .byte.b	128
+   1013  f591		       80		      .byte.b	128
+   1014  f592		       80		      .byte.b	128
+   1015  f593		       80		      .byte.b	128
+   1016  f594		       80		      .byte.b	128
+   1017  f595		       80		      .byte.b	128
+   1018  f596		       80		      .byte.b	128
+   1019  f597		       80		      .byte.b	128
+   1020  f598		       ff		      .byte.b	255
+   1021  f599		       ff		      .byte.b	255
+   1022  f59a		       ff		      .byte.b	255
+   1023  f59b		       ff		      .byte.b	255
+   1024  f59c		       01		      .byte.b	1
+   1025  f59d		       01		      .byte.b	1
+   1026  f59e		       01		      .byte.b	1
+   1027  f59f		       55		      .byte.b	85
+   1028  f5a0		       55		      .byte.b	85
+   1029  f5a1		       55		      .byte.b	85
+   1030  f5a2		       01		      .byte.b	1
+   1031  f5a3		       01		      .byte.b	1
+   1032  f5a4		       01		      .byte.b	1
+   1033  f5a5		       55		      .byte.b	85
+   1034  f5a6		       55		      .byte.b	85
+   1035  f5a7		       55		      .byte.b	85
+   1036  f5a8		       01		      .byte.b	1
+   1037  f5a9		       01		      .byte.b	1
+   1038  f5aa		       01		      .byte.b	1
+   1039  f5ab		       55		      .byte.b	85
+   1040  f5ac		       55		      .byte.b	85
+   1041  f5ad		       55		      .byte.b	85
+   1042  f5ae		       01		      .byte.b	1
+   1043  f5af		       01		      .byte.b	1
+   1044  f5b0		       01		      .byte.b	1
+   1045  f5b1		       55		      .byte.b	85
+   1046  f5b2		       55		      .byte.b	85
+   1047  f5b3		       55		      .byte.b	85
+   1048  f5b4		       01		      .byte.b	1
+   1049  f5b5		       01		      .byte.b	1
+   1050  f5b6		       01		      .byte.b	1
+   1051  f5b7		       ff		      .byte.b	255
+   1052  f5b8		       ff		      .byte.b	255
+   1053  f5b9		       ff		      .byte.b	255
+   1054  f5ba		       ff		      .byte.b	255
+   1055  f5bb		       00		      .byte.b	0
+   1056  f5bc		       00		      .byte.b	0
+   1057  f5bd		       00		      .byte.b	0
+   1058  f5be		       00		      .byte.b	0
+   1059  f5bf		       00		      .byte.b	0
+   1060  f5c0		       1c		      .byte.b	28
+   1061  f5c1		       00		      .byte.b	0
+   1062  f5c2		       00		      .byte.b	0
+   1063  f5c3		       00		      .byte.b	0
+   1064  f5c4		       00		      .byte.b	0
+   1065  f5c5		       08		      .byte.b	8
+   1066  f5c6		       1c		      .byte.b	28
+   1067  f5c7		       1c		      .byte.b	28
+   1068  f5c8		       1c		      .byte.b	28
+   1069  f5c9		       1c		      .byte.b	28
+   1070  f5ca		       1c		      .byte.b	28
+   1071  f5cb		       08		      .byte.b	8
+   1072  f5cc		       00		      .byte.b	0
+   1073  f5cd		       00		      .byte.b	0
+   1074  f5ce		       00		      .byte.b	0
+   1075  f5cf		       00		      .byte.b	0
+   1076  f5d0		       1c		      .byte.b	28
+   1077  f5d1		       00		      .byte.b	0
+   1078  f5d2		       00		      .byte.b	0
+   1079  f5d3		       00		      .byte.b	0
+   1080  f5d4		       00		      .byte.b	0
+   1081  f5d5		       ff		      .byte.b	255
+   1082  f5d6		       ff		      .byte.b	255
+   1083  f5d7		       ff		      .byte.b	255
+   1084  f5d8		       ff		      .byte.b	255
+   1085  f5d9		       01		      .byte.b	1
+   1086  f5da		       01		      .byte.b	1
+   1087  f5db		       01		      .byte.b	1
+   1088  f5dc		       01		      .byte.b	1
+   1089  f5dd		       55		      .byte.b	85
+   1090  f5de		       01		      .byte.b	1
+   1091  f5df		       01		      .byte.b	1
+   1092  f5e0		       01		      .byte.b	1
+   1093  f5e1		       01		      .byte.b	1
+   1094  f5e2		       01		      .byte.b	1
+   1095  f5e3		       55		      .byte.b	85
+   1096  f5e4		       01		      .byte.b	1
+   1097  f5e5		       01		      .byte.b	1
+   1098  f5e6		       01		      .byte.b	1
+   1099  f5e7		       01		      .byte.b	1
+   1100  f5e8		       01		      .byte.b	1
+   1101  f5e9		       55		      .byte.b	85
+   1102  f5ea		       01		      .byte.b	1
+   1103  f5eb		       01		      .byte.b	1
+   1104  f5ec		       01		      .byte.b	1
+   1105  f5ed		       01		      .byte.b	1
+   1106  f5ee		       01		      .byte.b	1
+   1107  f5ef		       55		      .byte.b	85
+   1108  f5f0		       01		      .byte.b	1
+   1109  f5f1		       01		      .byte.b	1
+   1110  f5f2		       01		      .byte.b	1
+   1111  f5f3		       01		      .byte.b	1
+   1112  f5f4		       ff		      .byte.b	255
+   1113  f5f5		       ff		      .byte.b	255
+   1114  f5f6		       ff		      .byte.b	255
+   1115  f5f7		       ff		      .byte.b	255
+   1116  f5f8		       80		      .byte.b	128
+   1117  f5f9		       80		      .byte.b	128
+   1118  f5fa		       80		      .byte.b	128
+   1119  f5fb		       80		      .byte.b	128
+   1120  f5fc		       80		      .byte.b	128
+   1121  f5fd		       80		      .byte.b	128
+   1122  f5fe		       80		      .byte.b	128
+   1123  f5ff		       80		      .byte.b	128
+   1124  f600		       80		      .byte.b	128
+   1125  f601		       c0		      .byte.b	192
+   1126  f602		       80		      .byte.b	128
+   1127  f603		       80		      .byte.b	128
+   1128  f604		       80		      .byte.b	128
+   1129  f605		       80		      .byte.b	128
+   1130  f606		       80		      .byte.b	128
+   1131  f607		       80		      .byte.b	128
+   1132  f608		       80		      .byte.b	128
+   1133  f609		       80		      .byte.b	128
+   1134  f60a		       80		      .byte.b	128
+   1135  f60b		       c0		      .byte.b	192
+   1136  f60c		       80		      .byte.b	128
+   1137  f60d		       80		      .byte.b	128
+   1138  f60e		       80		      .byte.b	128
+   1139  f60f		       80		      .byte.b	128
+   1140  f610		       80		      .byte.b	128
+   1141  f611		       80		      .byte.b	128
+   1142  f612		       80		      .byte.b	128
+   1143  f613		       80		      .byte.b	128
+   1144  f614		       80		      .byte.b	128
+   1145  f615		       c0		      .byte.b	192
+   1146  f616		       80		      .byte.b	128
+   1147  f617		       80		      .byte.b	128
+   1148  f618		       80		      .byte.b	128
+   1149  f619		       80		      .byte.b	128
+   1150  f61a		       80		      .byte.b	128
+   1151  f61b		       80		      .byte.b	128
+   1152  f61c		       80		      .byte.b	128
+   1153  f61d		       80		      .byte.b	128
+   1154  f61e		       80		      .byte.b	128
+   1155  f61f		       ff		      .byte.b	255
+   1156  f620		       ff		      .byte.b	255
+   1157  f621		       ff		      .byte.b	255
+   1158  f622		       ff		      .byte.b	255
+   1159  f623		       00		      .byte.b	0
+   1160  f624		       00		      .byte.b	0
+   1161  f625							;end
+   1162  f625
+------- FILE PacMan.asm
+    485  f625
+    486  f625							;==================================================================================
+    487  f625							; Bottom Data
+    488  f625							;==================================================================================
+    489  f625
+    490  f625				   BottomData
+    491  f625
+    492  f625							; 0
+    493  f625		       00		      .byte.b	%00000000
+    494  f626		       00		      .byte.b	%00000000
+    495  f627		       00		      .byte.b	%00000000
+    496  f628		       7e		      .byte.b	%01111110
+    497  f629		       ff		      .byte.b	%11111111
+    498  f62a		       e7		      .byte.b	%11100111
+    499  f62b		       e7		      .byte.b	%11100111
+    500  f62c		       c3		      .byte.b	%11000011
+    501  f62d		       c3		      .byte.b	%11000011
+    502  f62e		       c3		      .byte.b	%11000011
+    503  f62f		       c3		      .byte.b	%11000011
+    504  f630		       c3		      .byte.b	%11000011
+    505  f631		       c3		      .byte.b	%11000011
+    506  f632		       c3		      .byte.b	%11000011
+    507  f633		       c3		      .byte.b	%11000011
+    508  f634		       e7		      .byte.b	%11100111
+    509  f635		       e7		      .byte.b	%11100111
+    510  f636		       ff		      .byte.b	%11111111
+    511  f637		       7e		      .byte.b	%01111110
+    512  f638		       00		      .byte.b	%00000000
+    513  f639
+    514  f639							; 1
+    515  f639		       00		      .byte.b	%00000000
+    516  f63a		       00		      .byte.b	%00000000
+    517  f63b		       00		      .byte.b	%00000000
+    518  f63c		       ff		      .byte.b	%11111111
+    519  f63d		       ff		      .byte.b	%11111111
+    520  f63e		       1c		      .byte.b	%00011100
+    521  f63f		       1c		      .byte.b	%00011100
+    522  f640		       1c		      .byte.b	%00011100
+    523  f641		       1c		      .byte.b	%00011100
+    524  f642		       1c		      .byte.b	%00011100
+    525  f643		       1c		      .byte.b	%00011100
+    526  f644		       1c		      .byte.b	%00011100
+    527  f645		       1c		      .byte.b	%00011100
+    528  f646		       1c		      .byte.b	%00011100
+    529  f647		       1c		      .byte.b	%00011100
+    530  f648		       fc		      .byte.b	%11111100
+    531  f649		       7c		      .byte.b	%01111100
+    532  f64a		       3c		      .byte.b	%00111100
+    533  f64b		       1c		      .byte.b	%00011100
+    534  f64c		       00		      .byte.b	%00000000
+    535  f64d
+    536  f64d							; 2
+    537  f64d		       00		      .byte.b	%00000000
+    538  f64e		       00		      .byte.b	%00000000
+    539  f64f		       00		      .byte.b	%00000000
+    540  f650		       ff		      .byte.b	%11111111
+    541  f651		       ff		      .byte.b	%11111111
+    542  f652		       e0		      .byte.b	%11100000
+    543  f653		       e0		      .byte.b	%11100000
+    544  f654		       70		      .byte.b	%01110000
+    545  f655		       38		      .byte.b	%00111000
+    546  f656		       1c		      .byte.b	%00011100
+    547  f657		       0e		      .byte.b	%00001110
+    548  f658		       07		      .byte.b	%00000111
+    549  f659		       03		      .byte.b	%00000011
+    550  f65a		       03		      .byte.b	%00000011
+    551  f65b		       c3		      .byte.b	%11000011
+    552  f65c		       c3		      .byte.b	%11000011
+    553  f65d		       e7		      .byte.b	%11100111
+    554  f65e		       7e		      .byte.b	%01111110
+    555  f65f		       3c		      .byte.b	%00111100
+    556  f660		       00		      .byte.b	%00000000
+    557  f661
+    558  f661							; 3
+    559  f661		       00		      .byte.b	%00000000
+    560  f662		       00		      .byte.b	%00000000
+    561  f663		       00		      .byte.b	%00000000
+    562  f664		       3c		      .byte.b	%00111100
+    563  f665		       7e		      .byte.b	%01111110
+    564  f666		       ef		      .byte.b	%11101111
+    565  f667		       c7		      .byte.b	%11000111
+    566  f668		       07		      .byte.b	%00000111
+    567  f669		       07		      .byte.b	%00000111
+    568  f66a		       0e		      .byte.b	%00001110
+    569  f66b		       1c		      .byte.b	%00011100
+    570  f66c		       1c		      .byte.b	%00011100
+    571  f66d		       0e		      .byte.b	%00001110
+    572  f66e		       07		      .byte.b	%00000111
+    573  f66f		       07		      .byte.b	%00000111
+    574  f670		       c7		      .byte.b	%11000111
+    575  f671		       ef		      .byte.b	%11101111
+    576  f672		       7e		      .byte.b	%01111110
+    577  f673		       3c		      .byte.b	%00111100
+    578  f674		       00		      .byte.b	%00000000
+    579  f675
+    580  f675							; 4
+    581  f675		       00		      .byte.b	%00000000
+    582  f676		       00		      .byte.b	%00000000
+    583  f677		       00		      .byte.b	%00000000
+    584  f678		       06		      .byte.b	%00000110
+    585  f679		       06		      .byte.b	%00000110
+    586  f67a		       06		      .byte.b	%00000110
+    587  f67b		       06		      .byte.b	%00000110
+    588  f67c		       ff		      .byte.b	%11111111
+    589  f67d		       ff		      .byte.b	%11111111
+    590  f67e		       c6		      .byte.b	%11000110
+    591  f67f		       c6		      .byte.b	%11000110
+    592  f680		       66		      .byte.b	%01100110
+    593  f681		       66		      .byte.b	%01100110
+    594  f682		       36		      .byte.b	%00110110
+    595  f683		       36		      .byte.b	%00110110
+    596  f684		       1e		      .byte.b	%00011110
+    597  f685		       1e		      .byte.b	%00011110
+    598  f686		       0e		      .byte.b	%00001110
+    599  f687		       0e		      .byte.b	%00001110
+    600  f688		       00		      .byte.b	%00000000
+    601  f689
+    602  f689							; 5
+    603  f689		       00		      .byte.b	%00000000
+    604  f68a		       00		      .byte.b	%00000000
+    605  f68b		       00		      .byte.b	%00000000
+    606  f68c		       f8		      .byte.b	%11111000
+    607  f68d		       fc		      .byte.b	%11111100
+    608  f68e		       fe		      .byte.b	%11111110
+    609  f68f		       0f		      .byte.b	%00001111
+    610  f690		       07		      .byte.b	%00000111
+    611  f691		       07		      .byte.b	%00000111
+    612  f692		       07		      .byte.b	%00000111
+    613  f693		       0f		      .byte.b	%00001111
+    614  f694		       fe		      .byte.b	%11111110
+    615  f695		       fc		      .byte.b	%11111100
+    616  f696		       e0		      .byte.b	%11100000
+    617  f697		       e0		      .byte.b	%11100000
+    618  f698		       e0		      .byte.b	%11100000
+    619  f699		       e0		      .byte.b	%11100000
+    620  f69a		       ff		      .byte.b	%11111111
+    621  f69b		       ff		      .byte.b	%11111111
+    622  f69c		       00		      .byte.b	%00000000
+    623  f69d
+    624  f69d							; 6
+    625  f69d		       00		      .byte.b	%00000000
+    626  f69e		       00		      .byte.b	%00000000
+    627  f69f		       00		      .byte.b	%00000000
+    628  f6a0		       3c		      .byte.b	%00111100
+    629  f6a1		       7e		      .byte.b	%01111110
+    630  f6a2		       e7		      .byte.b	%11100111
+    631  f6a3		       c3		      .byte.b	%11000011
+    632  f6a4		       c3		      .byte.b	%11000011
+    633  f6a5		       c3		      .byte.b	%11000011
+    634  f6a6		       e7		      .byte.b	%11100111
+    635  f6a7		       fe		      .byte.b	%11111110
+    636  f6a8		       fc		      .byte.b	%11111100
+    637  f6a9		       c0		      .byte.b	%11000000
+    638  f6aa		       c0		      .byte.b	%11000000
+    639  f6ab		       c0		      .byte.b	%11000000
+    640  f6ac		       c3		      .byte.b	%11000011
+    641  f6ad		       e7		      .byte.b	%11100111
+    642  f6ae		       7f		      .byte.b	%01111111
+    643  f6af		       3e		      .byte.b	%00111110
+    644  f6b0		       00		      .byte.b	%00000000
+    645  f6b1
+    646  f6b1							; 7
+    647  f6b1		       00		      .byte.b	%00000000
+    648  f6b2		       00		      .byte.b	%00000000
+    649  f6b3		       00		      .byte.b	%00000000
+    650  f6b4		       18		      .byte.b	%00011000
+    651  f6b5		       18		      .byte.b	%00011000
+    652  f6b6		       18		      .byte.b	%00011000
+    653  f6b7		       18		      .byte.b	%00011000
+    654  f6b8		       18		      .byte.b	%00011000
+    655  f6b9		       18		      .byte.b	%00011000
+    656  f6ba		       18		      .byte.b	%00011000
+    657  f6bb		       18		      .byte.b	%00011000
+    658  f6bc		       0c		      .byte.b	%00001100
+    659  f6bd		       0c		      .byte.b	%00001100
+    660  f6be		       0c		      .byte.b	%00001100
+    661  f6bf		       c6		      .byte.b	%11000110
+    662  f6c0		       c7		      .byte.b	%11000111
+    663  f6c1		       ff		      .byte.b	%11111111
+    664  f6c2		       ff		      .byte.b	%11111111
+    665  f6c3		       ff		      .byte.b	%11111111
+    666  f6c4		       00		      .byte.b	%00000000
+    667  f6c5
+    668  f6c5							; 8
+    669  f6c5		       00		      .byte.b	%00000000
+    670  f6c6		       00		      .byte.b	%00000000
+    671  f6c7		       ee		      .byte.b	%11101110
+    672  f6c8		       ee		      .byte.b	%11101110
+    673  f6c9		       aa		      .byte.b	%10101010
+    674  f6ca		       aa		      .byte.b	%10101010
+    675  f6cb		       aa		      .byte.b	%10101010
+    676  f6cc		       aa		      .byte.b	%10101010
+    677  f6cd		       aa		      .byte.b	%10101010
+    678  f6ce		       aa		      .byte.b	%10101010
+    679  f6cf		       ee		      .byte.b	%11101110
+    680  f6d0		       ee		      .byte.b	%11101110
+    681  f6d1		       aa		      .byte.b	%10101010
+    682  f6d2		       aa		      .byte.b	%10101010
+    683  f6d3		       aa		      .byte.b	%10101010
+    684  f6d4		       aa		      .byte.b	%10101010
+    685  f6d5		       aa		      .byte.b	%10101010
+    686  f6d6		       ee		      .byte.b	%11101110
+    687  f6d7		       ee		      .byte.b	%11101110
+    688  f6d8		       00		      .byte.b	%00000000
+    689  f6d9
+    690  f6d9							; 9
+    691  f6d9		       00		      .byte.b	%00000000
+    692  f6da		       00		      .byte.b	%00000000
+    693  f6db		       ee		      .byte.b	%11101110
+    694  f6dc		       22		      .byte.b	%00100010
+    695  f6dd		       22		      .byte.b	%00100010
+    696  f6de		       22		      .byte.b	%00100010
+    697  f6df		       22		      .byte.b	%00100010
+    698  f6e0		       22		      .byte.b	%00100010
+    699  f6e1		       22		      .byte.b	%00100010
+    700  f6e2		       ee		      .byte.b	%11101110
+    701  f6e3		       ee		      .byte.b	%11101110
+    702  f6e4		       aa		      .byte.b	%10101010
+    703  f6e5		       aa		      .byte.b	%10101010
+    704  f6e6		       aa		      .byte.b	%10101010
+    705  f6e7		       aa		      .byte.b	%10101010
+    706  f6e8		       aa		      .byte.b	%10101010
+    707  f6e9		       aa		      .byte.b	%10101010
+    708  f6ea		       ee		      .byte.b	%11101110
+    709  f6eb		       ee		      .byte.b	%11101110
+    710  f6ec		       00		      .byte.b	%00000000
+    711  f6ed		       00		      .byte.b	%00000000
+    712  f6ee
+    713  f6ee							;==================================================================================
+    714  f6ee							; Interrupt Routines
+    715  f6ee							;==================================================================================
+    716  f6ee
+    717  10000 ????				       SEG	Interrupt
+    718  fffa					      ORG	$FFFA
+    719  fffa
+    720  fffa				   InterruptVectors
+    721  fffa		       00 f0		      .word.w	Reset
+    722  fffc		       00 f0		      .word.w	Reset
+    723  fffe		       00 f0		      .word.w	Reset
+    724  10000
+    725  10000					       END
