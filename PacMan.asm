@@ -6,7 +6,7 @@
 ; Program Definitions
 ;==================================================================================
     
-SPRITE_HEIGHT = 11
+SPRITE_HEIGHT = 22
 TIMER_LIMIT = 20
 
 ;==================================================================================
@@ -22,6 +22,8 @@ SpriteAddrPtr ds 2
 SpriteXPos ds 1
 SpriteYPos ds 1
 
+SpriteAnimationIndex ds 1
+
 ScoreTens ds 1
 ScoreOnes ds 1
 TensOffset ds 1
@@ -29,6 +31,7 @@ OnesOffset ds 1
 ScoreDisplayTemp ds 1
 
 TimerCounter ds 1
+PlayerReflectedBuffer ds 1
 
 ;==================================================================================
 ; Program Initialization
@@ -85,20 +88,26 @@ VSyncLoop
 ;==================================================================================
 
 HandleVBlank
+    
+    ; Initialize TIM64T
+    LDA #42
+    STA TIM64T
+
+    ; Prepare Registers for VBLANK
     LDA #0
     STA VSYNC
     LDA #%01000010
     STA VBLANK
 
+    ; Processing Tasks
     JSR GetControllerInputs
     JSR UpdateStuff
     
-    LDX #37
 VBlankLoop
-    STA WSYNC
-    DEX
+    LDA INTIM
     BNE VBlankLoop
-    
+
+    STA WSYNC
     RTS
 
 ;==================================================================================
@@ -106,50 +115,90 @@ VBlankLoop
 ;==================================================================================
     
 MainKernel
-    LDA #0
-    STA VBLANK
+    LDA #0                 
+    STA VBLANK              
     
-    JSR PositionSpriteX
+    JSR PositionSpriteX    
 
-    LDX #191
+    LDX #191               
+    STA WSYNC
 
 MainFrameLoop
+    
+    ; First Line
     ; Load First Playfield
-    LDA MainBoard_STRIP_0,x
-    STA PF0
+    LDA MainBoard_STRIP_0,x ; 4  4   0
+    STA PF0                 ; 3  7   12
 
-    LDA MainBoard_STRIP_1,x
-    STA PF1
+    LDA MainBoard_STRIP_1,x ; 4  11   33
+    STA PF1                 ; 3  14   42
 
-    LDA MainBoard_STRIP_2,x
-    STA PF2
+    LDA MainBoard_STRIP_2,x ; 4  18
+    STA PF2                 ; 3  21
+
+    ; Check Vertical Drawing
+    TXA                     ; 2
+    SEC                     ; 2
+    SBC SpriteYPos          ; 3
+	ADC #SPRITE_HEIGHT      ; 2
     
     ; Load Second Playfield
-    LDA MainBoard_STRIP_3,x
-    STA PF0
+    LDY MainBoard_STRIP_3,x ; 4  25
+    STY PF0                 ; 3  28
 
-    LDA MainBoard_STRIP_4,x
-    STA PF1
-
-    LDA MainBoard_STRIP_5,x
-    STA PF2
+    LDY MainBoard_STRIP_4,x ; 4  32
+    STY PF1
     
-    ; Load Sprite Shape
-    TXA                   
- 	SEC               
-    SBC SpriteYPos         
-	ADC #SPRITE_HEIGHT 
-	BCC .skipMBDraw3    
-	TAY
-	LDA (SpriteAddrPtr),y 
-	STA GRP0
+    LDY MainBoard_STRIP_5,x ; 4  39
+    STY PF2                 ; 3  42
 
-.skipMBDraw3 	
+    ; Load P0 Sprite Data
+    BCC SkipDrawing         ; 3
+    TAY                     ; 3
+    LDA (SpriteAddrPtr),y   ; 5
+    STA GRP0                ; 3
+
+SkipDrawing
+    ; Decrease X and Go To Next Line
+    DEX                     ; 2
+    STA WSYNC               ; 3
+    CPX #0
+    BEQ MainFrameLoopEnd    ; 2 
     
-    STA WSYNC
-    DEX
-	BNE MainFrameLoop
+    ; Second Line
 
+    ; Load First Playfield
+    LDA MainBoard_STRIP_0,x ; 4
+    STA PF0                 ; 3
+
+    LDA MainBoard_STRIP_1,x ; 4
+    STA PF1                 ; 3
+
+    LDA MainBoard_STRIP_2,x ; 4
+    STA PF2                 ; 3
+    
+    ; Load Second Player
+    LDA #0
+    STA GRP1
+    NOP
+    NOP
+    
+    ; Load Second Playfield
+    LDA MainBoard_STRIP_3,x ; 4
+    STA PF0                 ; 3
+
+    LDA MainBoard_STRIP_4,x ; 4
+    STA PF1                 ; 3
+
+    LDA MainBoard_STRIP_5,x ; 4
+    STA PF2                 ; 3
+    
+    ; Decrease X and Go To Next Line
+    STA WSYNC               ; 3
+    DEX                     ; 2
+	BNE MainFrameLoop       ; 2
+
+MainFrameLoopEnd
     ; Clearing Playfield Registers
     LDA #0
     STA PF0
@@ -167,8 +216,14 @@ MainFrameLoop
 
 Overscan
     
+    ; Prepare Registers for Overscan Drawing
     LDA #0
     STA PF1
+    STA REFP0
+
+    LDA #$0E
+    STA COLUP0
+    STA COLUP1
 
     ; Calculate Tens Offset
     LDX ScoreTens
@@ -180,7 +235,14 @@ Overscan
     LDA MultBy20,x
     STA OnesOffset
 
-    LDX #29
+    ; Adjust Score Placement
+    STA WSYNC
+    JSR Delay12
+    JSR Delay12
+    STA RESP0
+    STA RESP1
+
+    LDX #28
 OverscanLoop
     
     ; Is it time to draw?
@@ -189,7 +251,7 @@ OverscanLoop
     
     ; Time to draw
     TXA
-    SBC #10
+    SBC #9
     ADC TensOffset
     TAY
     LDA BottomData,y
@@ -202,9 +264,6 @@ OverscanLoop
     LDA BottomData,y
     STA GRP1
     
-    STA RESP0
-    STA RESP1
-    
 SmallerThan9    
     STA WSYNC
     DEX
@@ -214,6 +273,16 @@ SmallerThan9
     LDA #0
     STA GRP0
     STA GRP1
+
+    ; Return P0 Register Reflection Value
+    LDA PlayerReflectedBuffer
+    STA REFP0
+
+    ; Return P0 and P1 colors
+    LDA #$1E
+    STA COLUP0
+    STA COLUP1
+
     RTS
 
 ;==================================================================================
@@ -222,13 +291,13 @@ SmallerThan9
 
 InitVariables
     ; Initialize BG Color and PF Color
-    LDA #$84
+    LDA #$00
     STA COLUBK
-    LDA #$1C
+    LDA #$72
     STA COLUPF
 
     ; Initialize Player Color and Pattern
-    LDA #$56
+    LDA #$1E
     STA COLUP0
 
     ; Initialize Variables
@@ -246,13 +315,18 @@ InitVariables
     STA TimerCounter
     
     ; Score
-    LDA #7
     STA ScoreTens
     STA ScoreOnes
 
     ; Set Controller Inputs
-    LDA #0
     STA SWACNT
+
+    ; Set SpriteAnimationIndex
+    STA SpriteAnimationIndex
+
+    ; Set P0 and P1 Delays
+    LDA #1
+    STA VDELP0
 
     ; SpriteDataPointer
     LDA #<Sprite0Data
@@ -267,66 +341,66 @@ InitVariables
 ;==================================================================================
 
 PositionSpriteX
-    STA WSYNC
-    STA HMCLR  ; clear any previous movement
+    STA WSYNC                                   ; 3
+    STA HMCLR  ; clear any previous movement    ; 3
 
-    LDX #1     ; sprite index
+    LDX #1     ; sprite index                   ; 2
 
 PosSP   
 
-    LDA SpriteXPos-1,x
-    TAY
+    LDA SpriteXPos-1,x                          ; 4
+    TAY                                         ; 2
 
     ; Divide by 16
-    LSR
-    LSR
-    LSR
-    LSR    
-    STA PS_temp
+    LSR                                         ; 2
+    LSR                                         ; 2
+    LSR                                         ; 2
+    LSR                                         ; 2
+    STA PS_temp                                 ; 3
 
-    TYA
-    AND #15
+    TYA                                         ; 2
+    AND #15                                     ; 2
 
-    CLC
+    CLC                                         ; 2
 
-    ADC PS_temp
-    LDY PS_temp
+    ADC PS_temp                                 ; 3
+    LDY PS_temp                                 ; 3
 
-    CMP #15
-    BCC NH
-    SBC #15
-    INY
+    CMP #15                                     ; 2
+    BCC NH                                      ; 3
+    SBC #15                                     ; 2
+    INY                                         ; 2
 
 NH
     ; Use remainder for fine adjustment
-    EOR #7
-    ASL
-    ASL
-    ASL
-    ASL
+    EOR #7                                      ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
 
-    STA HMP0-1,x                     ; fine movement
-    STA WSYNC
+    STA HMP0-1,x    ; fine movement             ; 4
+    STA WSYNC                                   ; 3
 
-    JSR Ret                       ; just a 12 cycle delay
-    BIT 0                         ; 15 cycles = 3 loops :)
+    JSR Ret         ; just a 12 cycle delay     ; 12
+    BIT 0           ; 15 cycles = 3 loops :)    ; 3
 
 
 Jiggle  
-    dey
-    bpl Jiggle
+    dey                                         ; 2
+    bpl Jiggle                                  ; 3
 
-    sta RESP0-1,x
+    sta RESP0-1,x                               ; 4
 
-    dex
-    bne PosSP
+    dex                                         ; 2
+    bne PosSP                                   ; 3
 
-    sta WSYNC
-    sta HMOVE
-    sta WSYNC
+    sta WSYNC                                   ; 3
+    sta HMOVE                                   ; 3
+    sta WSYNC                                   ; 3
     
 Ret
-    RTS
+    RTS                                         ; 6
 
 ;==================================================================================
 ; UpdateStuff
@@ -345,7 +419,16 @@ UpdateStuff
     ; Increase Score
     JSR UpdateScore
 
+    ; Change Animation Frame
+    JSR ChangeAnimationFrame
+
     RTS
+
+;==================================================================================
+; ChangeAnimationFrame
+;==================================================================================
+
+
 
 ;==================================================================================
 ; GetControllerInputs
@@ -379,10 +462,16 @@ GetControllerInputs
 
 RightInput
     INC SpriteXPos
+    LDA #%1000
+    STA REFP0
+    STA PlayerReflectedBuffer
     JMP ControllerRet
 
 LeftInput
     DEC SpriteXPos
+    LDA #0
+    STA REFP0
+    STA PlayerReflectedBuffer
     JMP ControllerRet
 
 DownInput
@@ -421,7 +510,6 @@ TimerRet
 
 UpdateScore
     ; Check If Timer == 0
-    RTS
     LDA TimerCounter
     CMP #0
     BNE NotYet10
@@ -454,6 +542,13 @@ NotYet10
     RTS
 
 ;==================================================================================
+; Delay12 - Waste 12 cycles of CPU
+;==================================================================================
+
+Delay12
+    RTS
+
+;==================================================================================
 ; MultBy20
 ;==================================================================================
 
@@ -461,27 +556,93 @@ MultBy20
     .byte 0,20,40,60,80,100,120,140,160,180,200
 
 ;==================================================================================
+; Control Page Boundry
+;==================================================================================
+
+    .byte 0,1,2,3,4,5,6,7,8,9,10
+    .byte 0,1
+
+;===============================================================================
+; free space check before page boundry
+;===============================================================================
+        
+    echo "Start of Sprite0Data is: ", *
+    align 256 
+
+;==================================================================================
 ; Sprite Data
 ;==================================================================================
 
 Sprite0Data
-	.byte #%00000000
+	; Frame 0
+    .byte #%00000000
+    .byte #%00000000
 	.byte #%00011000
+    .byte #%00011000
 	.byte #%01111110
+    .byte #%01111110
 	.byte #%11111111
+    .byte #%11111111
 	.byte #%00111111
+    .byte #%00111111
 	.byte #%00001111
+    .byte #%00001111
+    .byte #%00111111
     .byte #%00111111
     .byte #%11111111
+    .byte #%11111111
+    .byte #%01111110
     .byte #%01111110
     .byte #%00011000
+    .byte #%00011000
 	.byte #%00000000
+    .byte #%00000000
+
+    ; Frame 1
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00011000
+    .byte #%00011000
+	.byte #%01111110
+    .byte #%01111110
+	.byte #%11111111
+    .byte #%11111111
+	.byte #%11111111
+    .byte #%11111111
+	.byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%01111110
+    .byte #%01111110
+    .byte #%00011000
+    .byte #%00011000
+	.byte #%00000000
+    .byte #%00000000 
+
+    ; Frame 2
+
+;===============================================================================
+; free space check before page boundry
+;===============================================================================
+        
+    echo "End of Sprite0Data is: ", *
+    align 256 
 
 ;==================================================================================
 ; Board Data
 ;==================================================================================
     
     include "MainBoard.asm"
+
+;===============================================================================
+; free space check before page boundry
+;===============================================================================
+        
+    echo "End of MainBoard.asm is: ", *
+    align 256 
 
 ;==================================================================================
 ; Bottom Data
@@ -494,7 +655,7 @@ BottomData
     .byte %00000000
     .byte %00000000
     .byte %01111110
-    .byte %11111111
+    .byte %01111110
     .byte %11100111
     .byte %11100111
     .byte %11000011
@@ -507,7 +668,7 @@ BottomData
     .byte %11000011
     .byte %11100111
     .byte %11100111
-    .byte %11111111
+    .byte %01111110
     .byte %01111110
     .byte %00000000
     
@@ -669,44 +830,44 @@ BottomData
     .byte %00000000
     .byte %00000000
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
+    .byte %00111100
+    .byte %01111110
+    .byte %11100111
+    .byte %11000011
+    .byte %11000011
+    .byte %11000011
+    .byte %11100111
+    .byte %01111110
+    .byte %00111100
+    .byte %01100110
+    .byte %11000011
+    .byte %11000011
+    .byte %11000011
+    .byte %11100111
+    .byte %01111110
+    .byte %00111100
     .byte %00000000
 
     ; 9
     .byte %00000000
     .byte %00000000
-    .byte %11101110
-    .byte %00100010
-    .byte %00100010
-    .byte %00100010
-    .byte %00100010
-    .byte %00100010
-    .byte %00100010
-    .byte %11101110
-    .byte %11101110
-    .byte %10101010
-    .byte %10101010
-    .byte %10101010
-    .byte %10101010
-    .byte %10101010
-    .byte %10101010
-    .byte %11101110
-    .byte %11101110
+    .byte %00000000
+    .byte %00111100
+    .byte %01111110
+    .byte %11100111
+    .byte %11000011
+    .byte %00000011
+    .byte %00000011
+    .byte %00000011
+    .byte %00111111
+    .byte %01111111
+    .byte %11100111
+    .byte %11000011
+    .byte %11000011
+    .byte %11000011
+    .byte %11100111
+    .byte %11111110
+    .byte %01111100
     .byte %00000000
     .byte %00000000
 
