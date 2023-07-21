@@ -1,11 +1,11 @@
 --- Symbol List (sorted by symbol)
 0.FREE_BYTES             0000                  
-Animation0               f1c0              (R )
-Animation1               f1cb              (R )
-Animation2               f1d6              (R )
-Animation3               f1e1              (R )
-ApplyAnimationFrame      f1ac              (R )
-ApplyAnimationFrameRet   f1e9              (R )
+Animation0               f213              (R )
+Animation1               f21e              (R )
+Animation2               f229              (R )
+Animation3               f234              (R )
+ApplyAnimationFrame      f1ff              (R )
+ApplyAnimationFrameRet   f23c              (R )
 AUDC0                    0015                  
 AUDC1                    0016                  
 AUDF0                    0017                  
@@ -13,15 +13,15 @@ AUDF1                    0018
 AUDV0                    0019                  
 AUDV1                    001a                  
 BottomData               f900              (R )
-ChangeAnimationFrame     f189              (R )
-ChangeDirection          f1a5              (R )
+ChangeAnimationFrame     f1dc              (R )
+ChangeDirection          f1f8              (R )
 ClearMemory              f000                  
 ClearMemoryLoop          f005              (R )
 COLUBK                   0009              (R )
 COLUP0                   0006              (R )
 COLUP1                   0007              (R )
 COLUPF                   0008              (R )
-ControllerRet            f221              (R )
+ControllerRet            f274              (R )
 CTRLPF                   000a                  
 CXBLPF                   0006                  
 CXCLR                    002c                  
@@ -32,19 +32,21 @@ CXM1P                    0001
 CXP0FB                   0002                  
 CXP1FB                   0003                  
 CXPPMM                   0007                  
-Delay12                  f251              (R )
-DidntReachLimit          f22f              (R )
-DontChangeFrame          f1ab              (R )
-DontRestartFrame         f1ab                  
-DownInput                f21a              (R )
+Delay12                  f2a4              (R )
+DidntReachLimit          f282              (R )
+DontChangeFrame          f1fe              (R )
+DontRestartFrame         f1fe                  
+DownInput                f26d              (R )
 ENABL                    001f                  
 ENAM0                    001d                  
 ENAM1                    001e                  
-FrameChanged             f198              (R )
-FrameChangeReturn        f1ab              (R )
-FrameIsGoingDown         f193                  
-FrameIsGoingUp           f197              (R )
-GetControllerInputs      f1ea              (R )
+FrameChanged             f1eb              (R )
+FrameChangeReturn        f1fe              (R )
+FrameIsGoingDown         f1e6                  
+FrameIsGoingUp           f1ea              (R )
+GetControllerInputs      f23d              (R )
+GhostSpriteXPos          0087              (R )
+GhostSpriteYPos          0088              (R )
 GRP0                     001b              (R )
 GRP1                     001c              (R )
 HandleVBlank             f02a              (R )
@@ -55,8 +57,8 @@ HMM0                     0022
 HMM1                     0023                  
 HMOVE                    002a              (R )
 HMP0                     0020              (R )
-HMP1                     0021                  
-InitVariables            f110              (R )
+HMP1                     0021              (R )
+InitVariables            f11c              (R )
 INPT0                    0008                  
 INPT1                    0009                  
 INPT2                    000a                  
@@ -65,9 +67,10 @@ INPT4                    000c
 INPT5                    000d                  
 InterruptVectors         fffa                  
 INTIM                    0284              (R )
-IsFrameGoingUp           0086              (R )
-Jiggle                   f16d              (R )
-LeftInput                f20f              (R )
+IsFrameGoingUp           008a              (R )
+Jiggle                   f187              (R )
+Jiggle1                  f1c0              (R )
+LeftInput                f262              (R )
 Main                     f00c              (R )
 MainBoard                f400                  
 MainBoard_STRIP_0        f400              (R )
@@ -76,26 +79,29 @@ MainBoard_STRIP_2        f580              (R )
 MainBoard_STRIP_3        f640              (R )
 MainBoard_STRIP_4        f700              (R )
 MainBoard_STRIP_5        f7c0              (R )
-MainFrameLoop            f050              (R )
-MainFrameLoopEnd         f0ab              (R )
+MainFrameLoop            f053              (R )
+MainFrameLoopEnd         f0b5              (R )
 MainKernel               f045              (R )
-MultBy20                 f252              (R )
-NH                       f15e              (R )
-NotYet10                 f250              (R )
+MultBy20                 f2a5              (R )
+NH                       f178              (R )
+NH1                      f1b1              (R )
+NotYet10                 f2a3              (R )
 NUSIZ0                   0004                  
 NUSIZ1                   0005                  
-OnesOffset               008a              (R )
-OnesReached10            f240                  
-Overscan                 f0b8              (R )
-OverscanLoop             f0e0              (R )
+OnesOffset               008e              (R )
+OnesReached10            f293                  
+Overscan                 f0c2              (R )
+OverscanLoop             f0ea              (R )
 PF0                      000d              (R )
 PF1                      000e              (R )
 PF2                      000f              (R )
-PlayerReflectedBuffer    008d              (R )
-PositionSpriteX          f140              (R )
-PosSP                    f146              (R )
+PlayerReflectedBuffer    0091              (R )
+PositionGhostSpriteX     f193              (R )
+PositionSpriteX          f15c              (R )
+PosSP                    f160                  
+PosSP1                   f199              (R )
 PS_temp                  0080              (R )
-ReachedLimit             f228                  
+ReachedLimit             f27b                  
 REFP0                    000b              (R )
 REFP1                    000c                  
 RESBL                    0014                  
@@ -106,21 +112,25 @@ RESMP0                   0028
 RESMP1                   0029                  
 RESP0                    0010              (R )
 RESP1                    0011              (R )
-Ret                      f17b              (R )
-RightInput               f204              (R )
+Ret                      f192              (R )
+Ret1                     f1ce              (R )
+RightInput               f257              (R )
 RSYNC                    0003                  
-ScoreDisplayTemp         008b                  
-ScoreOnes                0088              (R )
-ScoreTens                0087              (R )
-SkipDrawing              f07b              (R )
-SmallerThan9             f0fa              (R )
+ScoreDisplayTemp         008f                  
+ScoreOnes                008c              (R )
+ScoreTens                008b              (R )
+SkipDrawing              f07e              (R )
+SkipGhostDrawing         f0b0              (R )
+SmallerThan9             f104              (R )
 Sprite0Data              f300              (R )
 Sprite1Data              f316              (R )
 Sprite2Data              f32c              (R )
 Sprite3Data              f342              (R )
 SPRITE_HEIGHT            0016              (R )
 SpriteAddrPtr            0081              (R )
-SpriteAnimationIndex     0085              (R )
+SpriteAnimationIndex     0089              (R )
+SpriteGhostAddrPtr       0085              (R )
+SpriteGhostData          f358              (R )
 SpriteXPos               0083              (R )
 SpriteYPos               0084              (R )
 SWACNT                   0281              (R )
@@ -128,8 +138,8 @@ SWBCNT                   0283
 SWCHA                    0280              (R )
 SWCHB                    0282                  
 T1024T                   0297                  
-TensOffset               0089              (R )
-TensReached10            f24c                  
+TensOffset               008d              (R )
+TensReached10            f29f                  
 TIA_BASE_ADDRESS         0000              (R )
 TIA_BASE_READ_ADDRESS    0000              (R )
 TIA_BASE_WRITE_ADDRESS   0000              (R )
@@ -137,13 +147,13 @@ TIM1T                    0294
 TIM64T                   0296              (R )
 TIM8T                    0295                  
 TIMER_LIMIT              0005              (R )
-TimerCounter             008c              (R )
-TimerRet                 f231              (R )
+TimerCounter             0090              (R )
+TimerRet                 f284              (R )
 TIMINT                   0285                  
-UpdateScore              f232              (R )
-UpdateStuff              f17c              (R )
-UpdateTimer              f222              (R )
-UpInput                  f21f              (R )
+UpdateScore              f285              (R )
+UpdateStuff              f1cf              (R )
+UpdateTimer              f275              (R )
+UpInput                  f272              (R )
 VBLANK                   0001              (R )
 VBlankLoop               f03d              (R )
 VDELBL                   0027                  

@@ -22,6 +22,10 @@ SpriteAddrPtr ds 2
 SpriteXPos ds 1
 SpriteYPos ds 1
 
+SpriteGhostAddrPtr ds 2
+GhostSpriteXPos ds 1
+GhostSpriteYPos ds 1
+
 SpriteAnimationIndex ds 1
 IsFrameGoingUp ds 1
 
@@ -119,7 +123,8 @@ MainKernel
     LDA #0                 
     STA VBLANK              
     
-    JSR PositionSpriteX    
+    JSR PositionSpriteX
+    JSR PositionGhostSpriteX    
 
     LDX #191               
     STA WSYNC
@@ -178,22 +183,29 @@ SkipDrawing
     LDA MainBoard_STRIP_2,x ; 4
     STA PF2                 ; 3
     
-    ; Load Second Player
-    LDA #0
-    STA GRP1
-    NOP
-    NOP
+    ; Check Ghost Vertical Drawing
+    TXA                     ; 2
+    SEC                     ; 2
+    SBC GhostSpriteYPos     ; 3
+	ADC #SPRITE_HEIGHT      ; 2
     
     ; Load Second Playfield
-    LDA MainBoard_STRIP_3,x ; 4
-    STA PF0                 ; 3
+    LDY MainBoard_STRIP_3,x ; 4
+    STY PF0                 ; 3
 
-    LDA MainBoard_STRIP_4,x ; 4
-    STA PF1                 ; 3
+    LDY MainBoard_STRIP_4,x ; 4
+    STY PF1                 ; 3
 
-    LDA MainBoard_STRIP_5,x ; 4
-    STA PF2                 ; 3
+    LDY MainBoard_STRIP_5,x ; 4
+    STY PF2                 ; 3
+
+    ; Load Ghost Sprite Data
+    BCC SkipGhostDrawing    ; 3
+    TAY                     ; 3
+    LDA (SpriteGhostAddrPtr),y   ; 5
+    STA GRP1               ; 3
     
+SkipGhostDrawing
     ; Decrease X and Go To Next Line
     STA WSYNC               ; 3
     DEX                     ; 2
@@ -252,7 +264,7 @@ OverscanLoop
     
     ; Time to draw
     TXA
-    SBC #10
+    SBC #9
     ADC TensOffset
     TAY
     LDA BottomData,y
@@ -282,6 +294,7 @@ SmallerThan9
     ; Return P0 and P1 colors
     LDA #$1E
     STA COLUP0
+    LDA #$58
     STA COLUP1
 
     RTS
@@ -300,6 +313,8 @@ InitVariables
     ; Initialize Player Color and Pattern
     LDA #$1E
     STA COLUP0
+    LDA #$58
+    STA COLUP1
 
     ; Initialize Variables
     
@@ -310,6 +325,11 @@ InitVariables
     ; SpriteYPos
     LDA #105
     STA SpriteYPos
+
+    ; SpriteGhostXPos and YPos
+    LDA #50
+    STA GhostSpriteXPos
+    STA GhostSpriteYPos
 
     ; Timer Counter
     LDA #0
@@ -327,30 +347,33 @@ InitVariables
     STA IsFrameGoingUp
 
     ; Set P0 and P1 Delays
-    LDA #1
     STA VDELP0
 
-    ; SpriteDataPointer
+    ; PacmanSpriteDataPointer
     LDA #<Sprite0Data
     STA SpriteAddrPtr
     LDA #>Sprite0Data
     STA SpriteAddrPtr+1
 
+    ; GhostSpriteDataPointer
+    LDA #<SpriteGhostData
+    STA SpriteGhostAddrPtr
+    LDA #>SpriteGhostData
+    STA SpriteGhostAddrPtr+1
+
     RTS
 
 ;==================================================================================
-; PositionSpriteX - Subroutine to position sprite
+; PositionSpriteX - Subroutine to position player sprite
 ;==================================================================================
 
 PositionSpriteX
     STA WSYNC                                   ; 3
     STA HMCLR  ; clear any previous movement    ; 3
 
-    LDX #1     ; sprite index                   ; 2
-
 PosSP   
 
-    LDA SpriteXPos-1,x                          ; 4
+    LDA SpriteXPos                          ; 4
     TAY                                         ; 2
 
     ; Divide by 16
@@ -381,7 +404,7 @@ NH
     ASL                                         ; 2
     ASL                                         ; 2
 
-    STA HMP0-1,x    ; fine movement             ; 4
+    STA HMP0    ; fine movement             ; 4
     STA WSYNC                                   ; 3
 
     JSR Ret         ; just a 12 cycle delay     ; 12
@@ -389,19 +412,82 @@ NH
 
 
 Jiggle  
-    dey                                         ; 2
-    bpl Jiggle                                  ; 3
+    DEY                                         ; 2
+    BPL Jiggle                                  ; 3
 
-    sta RESP0-1,x                               ; 4
+    STA RESP0                               ; 4
 
-    dex                                         ; 2
-    bne PosSP                                   ; 3
-
-    sta WSYNC                                   ; 3
-    sta HMOVE                                   ; 3
-    sta WSYNC                                   ; 3
+    STA WSYNC                                   ; 3
+    STA HMOVE                                   ; 3
+    STA WSYNC                                   ; 3
     
 Ret
+    RTS                                         ; 6
+
+;==================================================================================
+; PositionGhostSpriteX - Subroutine to position ghost sprite
+;==================================================================================
+
+PositionGhostSpriteX
+    STA WSYNC                                   ; 3
+    STA HMCLR  ; clear any previous movement    ; 3
+
+    LDX #1     ; sprite index                   ; 2
+
+PosSP1   
+
+    LDA GhostSpriteXPos-1,x                          ; 4
+    TAY                                         ; 2
+
+    ; Divide by 16
+    LSR                                         ; 2
+    LSR                                         ; 2
+    LSR                                         ; 2
+    LSR                                         ; 2
+    STA PS_temp                                 ; 3
+
+    TYA                                         ; 2
+    AND #15                                     ; 2
+
+    CLC                                         ; 2
+
+    ADC PS_temp                                 ; 3
+    LDY PS_temp                                 ; 3
+
+    CMP #15                                     ; 2
+    BCC NH1                                     ; 3
+    SBC #15                                     ; 2
+    INY                                         ; 2
+
+NH1
+    ; Use remainder for fine adjustment
+    EOR #7                                      ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+
+    STA HMP1-1,x    ; fine movement             ; 4
+    STA WSYNC                                   ; 3
+
+    JSR Ret1         ; just a 12 cycle delay     ; 12
+    BIT 0           ; 15 cycles = 3 loops :)    ; 3
+
+
+Jiggle1  
+    DEY                                         ; 2
+    BPL Jiggle1                                  ; 3
+
+    STA RESP1-1,x                               ; 4
+
+    DEX                                         ; 2
+    BNE PosSP1                                   ; 3
+
+    STA WSYNC                                   ; 3
+    STA HMOVE                                   ; 3
+    STA WSYNC                                   ; 3
+    
+Ret1
     RTS                                         ; 6
 
 ;==================================================================================
@@ -661,7 +747,7 @@ MultBy20
     align 256 
 
 ;==================================================================================
-; Sprite Data
+; Sprite Data - Pacman
 ;==================================================================================
 
 Sprite0Data
@@ -762,11 +848,39 @@ Sprite3Data
     .byte #%00011000
     .byte #%00011000
 	.byte #%00000000
-    .byte #%00000000 
+    .byte #%00000000
 
-;===============================================================================
+;==================================================================================
+; Sprite Data - Ghost
+;==================================================================================
+
+SpriteGhostData
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%01010101
+    .byte #%01010101
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%10011001
+    .byte #%10011001
+    .byte #%10111011
+    .byte #%10111011
+    .byte #%11111111
+    .byte #%01111110
+    .byte #%01111110
+    .byte #%01111110
+    .byte #%01111110
+    .byte #%00111100
+    .byte #%00111100
+    .byte #%00000000
+    .byte #%00000000
+
+;==================================================================================
 ; free space check before page boundry
-;===============================================================================
+;==================================================================================
         
     echo "End of Sprite0Data is: ", *
     align 256 
