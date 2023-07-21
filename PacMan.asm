@@ -7,7 +7,7 @@
 ;==================================================================================
     
 SPRITE_HEIGHT = 22
-TIMER_LIMIT = 20
+TIMER_LIMIT = 5
 
 ;==================================================================================
 ; Program Variables
@@ -23,6 +23,7 @@ SpriteXPos ds 1
 SpriteYPos ds 1
 
 SpriteAnimationIndex ds 1
+IsFrameGoingUp ds 1
 
 ScoreTens ds 1
 ScoreOnes ds 1
@@ -251,7 +252,7 @@ OverscanLoop
     
     ; Time to draw
     TXA
-    SBC #9
+    SBC #10
     ADC TensOffset
     TAY
     LDA BottomData,y
@@ -323,6 +324,7 @@ InitVariables
 
     ; Set SpriteAnimationIndex
     STA SpriteAnimationIndex
+    STA IsFrameGoingUp
 
     ; Set P0 and P1 Delays
     LDA #1
@@ -422,13 +424,102 @@ UpdateStuff
     ; Change Animation Frame
     JSR ChangeAnimationFrame
 
+    ; Apply Animation Frame
+    JSR ApplyAnimationFrame
+
     RTS
 
 ;==================================================================================
 ; ChangeAnimationFrame
 ;==================================================================================
 
+ChangeAnimationFrame
+    ; Verify Counter
+    LDA TimerCounter
+    BNE DontChangeFrame
+    
+    ; Load Current Frame Index
+    LDY SpriteAnimationIndex
+    
+    ; Verify Next Frame
+    LDX IsFrameGoingUp
+    BEQ FrameIsGoingUp
 
+FrameIsGoingDown
+    DEY
+    JMP FrameChanged
+
+FrameIsGoingUp
+    INY
+
+FrameChanged
+    ; Check if Index is Either 0 or 2
+    STY SpriteAnimationIndex
+    CPY #3
+    BEQ ChangeDirection
+    CPY #0
+    BEQ ChangeDirection
+    
+    ; If not
+    JMP FrameChangeReturn
+
+ChangeDirection
+    LDA IsFrameGoingUp
+    EOR #1
+    STA IsFrameGoingUp
+    
+DontRestartFrame
+DontChangeFrame
+FrameChangeReturn
+    RTS
+
+;==================================================================================
+; ApplyAnimationFrame
+;==================================================================================
+
+ApplyAnimationFrame
+    ; Check Counter
+    LDA TimerCounter
+    BNE ApplyAnimationFrameRet
+    
+    LDA SpriteAnimationIndex
+    BEQ Animation0
+    CMP #1
+    BEQ Animation1
+    CMP #2
+    BEQ Animation2
+    CMP #3
+    BEQ Animation3
+    
+Animation0
+    LDA #<Sprite0Data
+    STA SpriteAddrPtr
+    LDA #>Sprite0Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation1
+    LDA #<Sprite1Data
+    STA SpriteAddrPtr
+    LDA #>Sprite1Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation2
+    LDA #<Sprite2Data
+    STA SpriteAddrPtr
+    LDA #>Sprite2Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation3
+    LDA #<Sprite3Data
+    STA SpriteAddrPtr
+    LDA #>Sprite3Data
+    STA SpriteAddrPtr+1
+
+ApplyAnimationFrameRet
+    RTS
 
 ;==================================================================================
 ; GetControllerInputs
@@ -574,6 +665,31 @@ MultBy20
 ;==================================================================================
 
 Sprite0Data
+; Frame 0
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00011000
+    .byte #%00011000
+	.byte #%01111110
+    .byte #%01111110
+	.byte #%00111111
+    .byte #%00111111
+	.byte #%00001111
+    .byte #%00001111
+	.byte #%00000111
+    .byte #%00000111
+    .byte #%00001111
+    .byte #%00001111
+    .byte #%00111111
+    .byte #%00111111
+    .byte #%01111110
+    .byte #%01111110
+    .byte #%00011000
+    .byte #%00011000
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite1Data
 	; Frame 0
     .byte #%00000000
     .byte #%00000000
@@ -598,7 +714,33 @@ Sprite0Data
 	.byte #%00000000
     .byte #%00000000
 
+Sprite2Data
     ; Frame 1
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00011000
+    .byte #%00011000
+	.byte #%01111110
+    .byte #%01111110
+	.byte #%11111111
+    .byte #%11111111
+	.byte #%11111111
+    .byte #%11111111
+	.byte #%00001111
+    .byte #%00001111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%01111110
+    .byte #%01111110
+    .byte #%00011000
+    .byte #%00011000
+	.byte #%00000000
+    .byte #%00000000 
+
+Sprite3Data
+    ; Frame 2
     .byte #%00000000
     .byte #%00000000
 	.byte #%00011000
@@ -621,8 +763,6 @@ Sprite0Data
     .byte #%00011000
 	.byte #%00000000
     .byte #%00000000 
-
-    ; Frame 2
 
 ;===============================================================================
 ; free space check before page boundry
