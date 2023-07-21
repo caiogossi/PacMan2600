@@ -37,6 +37,7 @@ ScoreDisplayTemp ds 1
 
 TimerCounter ds 1
 PlayerReflectedBuffer ds 1
+GhostReflectedBuffer ds 1
 
 ;==================================================================================
 ; Program Initialization
@@ -106,6 +107,7 @@ HandleVBlank
 
     ; Processing Tasks
     JSR GetControllerInputs
+    JSR GetController2InputsDEBUG
     JSR UpdateStuff
     
 VBlankLoop
@@ -233,6 +235,7 @@ Overscan
     LDA #0
     STA PF1
     STA REFP0
+    STA REFP1
 
     LDA #$0E
     STA COLUP0
@@ -290,6 +293,10 @@ SmallerThan9
     ; Return P0 Register Reflection Value
     LDA PlayerReflectedBuffer
     STA REFP0
+
+    ; Return P1 Register Reflection Value
+    LDA GhostReflectedBuffer
+    STA REFP1
 
     ; Return P0 and P1 colors
     LDA #$1E
@@ -659,6 +666,60 @@ UpInput
     INC SpriteYPos
 
 ControllerRet
+    RTS
+
+;==================================================================================
+; GetController2Inputs - DEBUG - Controls Ghost
+;==================================================================================
+
+GetController2InputsDEBUG
+    LDX SWCHA
+    
+    ; Check Right Input
+    TXA
+    AND #%00001000
+    BEQ RightInputGhost
+    
+    ; Check Left Input
+    TXA
+    AND #%00000100
+    BEQ LeftInputGhost
+    
+    ; Check Down Input
+    TXA
+    AND #%00000010
+    BEQ DownInputGhost
+    
+    ; Check Up Input
+    TXA
+    AND #%00000001
+    BEQ UpInputGhost
+
+    ; No Input Detected
+    JMP ControllerRetGhost
+
+RightInputGhost
+    INC GhostSpriteXPos
+    LDA #%1000
+    STA REFP1
+    STA GhostReflectedBuffer
+    JMP ControllerRetGhost
+
+LeftInputGhost
+    DEC GhostSpriteXPos
+    LDA #0
+    STA REFP1
+    STA GhostReflectedBuffer
+    JMP ControllerRetGhost
+
+DownInputGhost
+    DEC GhostSpriteYPos
+    JMP ControllerRetGhost
+
+UpInputGhost
+    INC GhostSpriteYPos
+
+ControllerRetGhost
     RTS
 
 ;==================================================================================
