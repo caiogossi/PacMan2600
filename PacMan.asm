@@ -6,7 +6,7 @@
 ; Program Definitions
 ;==================================================================================
     
-SPRITE_HEIGHT = 22
+SPRITE_HEIGHT = 18
 TIMER_LIMIT = 5
 
 ;==================================================================================
@@ -329,16 +329,17 @@ InitVariables
     ; Initialize Variables
     
     ; SpriteXPos
-    LDA #125
+    LDA #80
     STA SpriteXPos
     
     ; SpriteYPos
-    LDA #105
+    LDA #107
     STA SpriteYPos
 
     ; SpriteGhostXPos and YPos
-    LDA #50
+    LDA #77
     STA GhostSpriteXPos
+    LDA #130
     STA GhostSpriteYPos
 
     ; Timer Counter
@@ -642,7 +643,18 @@ GoRight
     STA LastSpriteXPos
     LDA SpriteYPos
     STA LastSpriteYPos
+    
     INC SpriteXPos
+
+    ; Verify If Sprite is in Far Right
+    LDA SpriteXPos
+    CMP #160
+    BCC NotFarRight
+
+    LDA #0
+    STA SpriteXPos
+
+NotFarRight
     JMP UpdatePlayerPositionRet
 
 GoLeft
@@ -650,7 +662,18 @@ GoLeft
     STA LastSpriteXPos
     LDA SpriteYPos
     STA LastSpriteYPos
+    
     DEC SpriteXPos
+
+    ; Verify If Sprite is in Far Left
+    LDA SpriteXPos
+    CMP #0
+    BNE NotFarLeft
+
+    LDA #160
+    STA SpriteXPos
+
+NotFarLeft
     JMP UpdatePlayerPositionRet
 
 GoDown
@@ -658,6 +681,7 @@ GoDown
     STA LastSpriteXPos
     LDA SpriteYPos
     STA LastSpriteYPos
+    
     DEC SpriteYPos
     JMP UpdatePlayerPositionRet
 
@@ -666,6 +690,7 @@ GoUp
     STA LastSpriteXPos
     LDA SpriteYPos
     STA LastSpriteYPos
+    
     INC SpriteYPos
 
 UpdatePlayerPositionRet
@@ -969,8 +994,6 @@ Sprite0Data
 ; Frame 0
     .byte #%00000000
     .byte #%00000000
-	.byte #%00011000
-    .byte #%00011000
 	.byte #%01111110
     .byte #%01111110
 	.byte #%00111111
@@ -985,8 +1008,6 @@ Sprite0Data
     .byte #%00111111
     .byte #%01111110
     .byte #%01111110
-    .byte #%00011000
-    .byte #%00011000
 	.byte #%00000000
     .byte #%00000000
 
@@ -994,8 +1015,6 @@ Sprite1Data
 	; Frame 0
     .byte #%00000000
     .byte #%00000000
-	.byte #%00011000
-    .byte #%00011000
 	.byte #%01111110
     .byte #%01111110
 	.byte #%11111111
@@ -1010,8 +1029,6 @@ Sprite1Data
     .byte #%11111111
     .byte #%01111110
     .byte #%01111110
-    .byte #%00011000
-    .byte #%00011000
 	.byte #%00000000
     .byte #%00000000
 
@@ -1019,8 +1036,6 @@ Sprite2Data
     ; Frame 1
     .byte #%00000000
     .byte #%00000000
-	.byte #%00011000
-    .byte #%00011000
 	.byte #%01111110
     .byte #%01111110
 	.byte #%11111111
@@ -1035,8 +1050,6 @@ Sprite2Data
     .byte #%11111111
     .byte #%01111110
     .byte #%01111110
-    .byte #%00011000
-    .byte #%00011000
 	.byte #%00000000
     .byte #%00000000 
 
@@ -1044,8 +1057,6 @@ Sprite3Data
     ; Frame 2
     .byte #%00000000
     .byte #%00000000
-	.byte #%00011000
-    .byte #%00011000
 	.byte #%01111110
     .byte #%01111110
 	.byte #%11111111
@@ -1060,8 +1071,6 @@ Sprite3Data
     .byte #%11111111
     .byte #%01111110
     .byte #%01111110
-    .byte #%00011000
-    .byte #%00011000
 	.byte #%00000000
     .byte #%00000000
 
@@ -1077,8 +1086,6 @@ SpriteGhostData
     .byte #%11111111
     .byte #%11111111
     .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
     .byte #%10011001
     .byte #%10011001
     .byte #%10111011
@@ -1088,8 +1095,6 @@ SpriteGhostData
     .byte #%01111110
     .byte #%01111110
     .byte #%01111110
-    .byte #%00111100
-    .byte #%00111100
     .byte #%00000000
     .byte #%00000000
 
