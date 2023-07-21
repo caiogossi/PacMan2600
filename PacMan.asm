@@ -21,6 +21,9 @@ PS_temp ds 1
 SpriteAddrPtr ds 2
 SpriteXPos ds 1
 SpriteYPos ds 1
+LastSpriteXPos ds 1
+LastSpriteYPos ds 1
+PlayerVelocityMask ds 1
 
 SpriteGhostAddrPtr ds 2
 GhostSpriteXPos ds 1
@@ -108,7 +111,7 @@ HandleVBlank
     ; Processing Tasks
     JSR GetControllerInputs
     JSR GetController2InputsDEBUG
-    JSR UpdateStuff
+    JSR UpdateEntities
     
 VBlankLoop
     LDA INTIM
@@ -498,15 +501,18 @@ Ret1
     RTS                                         ; 6
 
 ;==================================================================================
-; UpdateStuff
+; UpdateEntities - Update Game Logic
 ;==================================================================================
 
-UpdateStuff
-    ; Update Sprite X Pos
-    ;INC SpriteXPos
+UpdateEntities
+    ; Check Player Collision
+    JSR CheckPlayerCollision
 
-    ; Update Sprite Y Pos
-    ;INC SpriteYPos
+    ; Update Sprite Pos According to Velocity Mask
+    JSR UpdatePlayerPosition
+
+    ; Remove Collisions After Checks
+    STA CXCLR
 
     ; Update Timer
     JSR UpdateTimer
@@ -520,6 +526,149 @@ UpdateStuff
     ; Apply Animation Frame
     JSR ApplyAnimationFrame
 
+    RTS
+
+;==================================================================================
+; CheckPlayerCollision - Verify for Player Collision with PF and Update Velocity Mask
+;==================================================================================
+
+CheckPlayerCollision
+    ; Verify P0PF Collision Bit
+    LDA CXP0FB
+    AND #%10000000
+    BEQ PlayerPFCollisionNotDetected
+
+    ; Check Where Player Was Going
+    LDX PlayerVelocityMask
+    
+    ; Return Player to Previous Spot Before Zeoring Velocity
+    TXA
+    AND #%1000
+    BNE WasGoingRight
+
+    TXA
+    AND #%0100
+    BNE WasGoingLeft
+
+    TXA
+    AND #%0010
+    BNE WasGoingDown
+
+    TXA
+    AND #%0001
+    BNE WasGoingUp
+
+    ; Return X and Y in case Player isnt moving and is still stuck
+    LDA LastSpriteXPos
+    STA SpriteXPos
+    LDA LastSpriteYPos
+    STA SpriteYPos
+
+    JMP ZeroPlayerVelocity
+
+WasGoingRight
+    LDA LastSpriteXPos
+    STA SpriteXPos
+    
+    DEC SpriteXPos
+    DEC SpriteXPos
+    
+    JMP ZeroPlayerVelocity
+
+WasGoingLeft
+    LDA LastSpriteXPos
+    STA SpriteXPos
+    
+    INC SpriteXPos
+    INC SpriteXPos
+    
+    JMP ZeroPlayerVelocity
+
+WasGoingDown
+    LDA LastSpriteYPos
+    STA SpriteYPos
+    
+    INC SpriteYPos
+    INC SpriteYPos
+    
+    JMP ZeroPlayerVelocity
+
+WasGoingUp
+    LDA LastSpriteYPos
+    STA SpriteYPos
+    
+    DEC SpriteYPos
+    DEC SpriteYPos
+    
+ZeroPlayerVelocity
+    LDA #0
+    STA PlayerVelocityMask
+
+PlayerPFCollisionNotDetected
+    RTS
+
+;==================================================================================
+; UpdatePlayerPosition - Update Player Position According to Velocity Mask
+;==================================================================================
+
+UpdatePlayerPosition
+    ; Verify Collision and Refuse to Move in case is colliding
+    LDA CXP0FB
+    AND #%10000000
+    BNE UpdatePlayerPositionRet
+    
+    LDX PlayerVelocityMask
+    
+    TXA
+    AND #%1000
+    BNE GoRight
+
+    TXA
+    AND #%0100
+    BNE GoLeft
+
+    TXA
+    AND #%0010
+    BNE GoDown
+
+    TXA
+    AND #%0001
+    BNE GoUp
+
+    JMP UpdatePlayerPositionRet
+
+GoRight
+    LDA SpriteXPos
+    STA LastSpriteXPos
+    LDA SpriteYPos
+    STA LastSpriteYPos
+    INC SpriteXPos
+    JMP UpdatePlayerPositionRet
+
+GoLeft
+    LDA SpriteXPos
+    STA LastSpriteXPos
+    LDA SpriteYPos
+    STA LastSpriteYPos
+    DEC SpriteXPos
+    JMP UpdatePlayerPositionRet
+
+GoDown
+    LDA SpriteXPos
+    STA LastSpriteXPos
+    LDA SpriteYPos
+    STA LastSpriteYPos
+    DEC SpriteYPos
+    JMP UpdatePlayerPositionRet
+
+GoUp
+    LDA SpriteXPos
+    STA LastSpriteXPos
+    LDA SpriteYPos
+    STA LastSpriteYPos
+    INC SpriteYPos
+
+UpdatePlayerPositionRet
     RTS
 
 ;==================================================================================
@@ -615,7 +764,7 @@ ApplyAnimationFrameRet
     RTS
 
 ;==================================================================================
-; GetControllerInputs
+; GetControllerInputs - Update Player Velocity Mask According to Inputs
 ;==================================================================================
 
 GetControllerInputs
@@ -645,25 +794,30 @@ GetControllerInputs
     JMP ControllerRet
 
 RightInput
-    INC SpriteXPos
     LDA #%1000
     STA REFP0
     STA PlayerReflectedBuffer
+
+    STA PlayerVelocityMask
     JMP ControllerRet
 
 LeftInput
-    DEC SpriteXPos
     LDA #0
     STA REFP0
     STA PlayerReflectedBuffer
+
+    LDA #%0100
+    STA PlayerVelocityMask
     JMP ControllerRet
 
 DownInput
-    DEC SpriteYPos
+    LDA #%0010
+    STA PlayerVelocityMask
     JMP ControllerRet
 
 UpInput
-    INC SpriteYPos
+    LDA #%0001
+    STA PlayerVelocityMask
 
 ControllerRet
     RTS
