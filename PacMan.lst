@@ -382,1292 +382,1653 @@
       7  0000 ????						;==================================================================================
       8  0000 ????
       9  0000 ????	       00 12	   SPRITE_HEIGHT =	18
-     10  0000 ????	       00 05	   TIMER_LIMIT =	5
-     11  0000 ????
-     12  0000 ????						;==================================================================================
-     13  0000 ????						; Program Variables
-     14  0000 ????						;==================================================================================
-     15  0000 ????
-     16 U00a3 ????				      SEG.U	Variables
-     17 U0080					      ORG	$80
-     18 U0080
-     19 U0080		       00	   PS_temp    ds	1
-     20 U0081
-     21 U0081		       00 00	   SpriteAddrPtr ds	2
-     22 U0083		       00	   SpriteXPos ds	1
-     23 U0084		       00	   SpriteYPos ds	1
-     24 U0085		       00	   LastSpriteXPos ds	1
-     25 U0086		       00	   LastSpriteYPos ds	1
-     26 U0087		       00	   PlayerVelocityMask ds	1
-     27 U0088
-     28 U0088		       00 00	   SpriteGhostAddrPtr ds	2
-     29 U008a		       00	   GhostSpriteXPos ds	1
-     30 U008b		       00	   GhostSpriteYPos ds	1
-     31 U008c
-     32 U008c		       00	   CurWaferXPos0 ds	1
-     33 U008d		       00	   WaferXPosIndex ds	1
-     34 U008e		       00 00 00 00*WaferArray ds	6
-     35 U0094		       00	   PickedUpWaferBuffer ds	1
-     36 U0095
-     37 U0095		       00	   SpriteAnimationIndex ds	1
-     38 U0096		       00	   IsFrameGoingUp ds	1
-     39 U0097
-     40 U0097		       00	   ScoreHundreds ds	1
-     41 U0098		       00	   ScoreTens  ds	1
-     42 U0099		       00	   ScoreOnes  ds	1
-     43 U009a
-     44 U009a		       00	   HundredsOffset ds	1
-     45 U009b		       00	   TensOffset ds	1
-     46 U009c		       00	   OnesOffset ds	1
-     47 U009d
-     48 U009d		       00	   ScoreDisplayBufferHundreds ds	1
-     49 U009e		       00	   ScoreDisplayBufferTens ds	1
-     50 U009f		       00	   ScoreDisplayBufferOnes ds	1
-     51 U00a0
-     52 U00a0		       00	   TimerCounter ds	1
-     53 U00a1
-     54 U00a1		       00	   PlayerReflectedBuffer ds	1
-     55 U00a2		       00	   GhostReflectedBuffer ds	1
-     56 U00a3
-     57 U00a3							;==================================================================================
-     58 U00a3							; Program Initialization
-     59 U00a3							;==================================================================================
-     60 U00a3
-     61  fc8d ????				      SEG	Executable
-     62  f000					      ORG	$F000
-     63  f000
-     64  f000				   Reset
-     65  f000				   ClearMemory
-     66  f000		       a2 00		      LDX	#0
-     67  f002		       9a		      TXS
-     68  f003		       48		      PHA
-     69  f004		       8a		      TXA
-     70  f005
-     71  f005				   ClearMemoryLoop
-     72  f005		       48		      PHA
-     73  f006		       ca		      DEX
-     74  f007		       d0 fc		      BNE	ClearMemoryLoop
-     75  f009
-     76  f009		       20 41 f1 	      JSR	InitVariables
-     77  f00c
-     78  f00c							;==================================================================================
-     79  f00c							; Main Loop
-     80  f00c							;==================================================================================
-     81  f00c
-     82  f00c				   Main
-     83  f00c		       20 1b f0 	      JSR	HandleVSync
-     84  f00f		       20 2a f0 	      JSR	HandleVBlank
-     85  f012		       20 48 f0 	      JSR	MainKernel
-     86  f015		       20 dd f0 	      JSR	Overscan
-     87  f018		       4c 0c f0 	      JMP	Main
-     88  f01b
-     89  f01b							;==================================================================================
-     90  f01b							; HandleVSync
-     91  f01b							;==================================================================================
-     92  f01b
-     93  f01b				   HandleVSync
-     94  f01b		       a9 00		      LDA	#0
-     95  f01d		       85 01		      STA	VBLANK
-     96  f01f		       a9 02		      LDA	#2
-     97  f021		       85 00		      STA	VSYNC
-     98  f023
-     99  f023				   VSyncLoop
-    100  f023		       85 02		      STA	WSYNC
-    101  f025		       85 02		      STA	WSYNC
-    102  f027		       85 02		      STA	WSYNC
-    103  f029
-    104  f029		       60		      RTS
-    105  f02a
-    106  f02a							;==================================================================================
-    107  f02a							; HandleVBlank
-    108  f02a							; Handle Part of Game Logic
-    109  f02a							;==================================================================================
+     10  0000 ????	       00 05	   TIMER_LIMIT1 =	5
+     11  0000 ????	       00 14	   TIMER_LIMIT2 =	20
+     12  0000 ????
+     13  0000 ????						;==================================================================================
+     14  0000 ????						; Program Variables
+     15  0000 ????						;==================================================================================
+     16  0000 ????
+     17 U00a6 ????				      SEG.U	Variables
+     18 U0080					      ORG	$80
+     19 U0080
+     20 U0080		       00	   PS_temp    ds	1
+     21 U0081
+     22 U0081		       00 00	   SpriteAddrPtr ds	2
+     23 U0083		       00	   SpriteXPos ds	1
+     24 U0084		       00	   SpriteYPos ds	1
+     25 U0085		       00	   LastSpriteXPos ds	1
+     26 U0086		       00	   LastSpriteYPos ds	1
+     27 U0087		       00	   PlayerVelocityMask ds	1
+     28 U0088
+     29 U0088		       00 00	   SpriteGhostAddrPtr ds	2
+     30 U008a		       00	   GhostSpriteXPos ds	1
+     31 U008b		       00	   GhostSpriteYPos ds	1
+     32 U008c
+     33 U008c		       00	   CurWaferXPos0 ds	1
+     34 U008d		       00	   WaferXPosIndex ds	1
+     35 U008e		       00 00 00 00*WaferArray ds	6
+     36 U0094		       00	   PickedUpWaferBuffer ds	1
+     37 U0095
+     38 U0095		       00	   SpriteAnimationIndex ds	1
+     39 U0096		       00	   IsFrameGoingUp ds	1
+     40 U0097
+     41 U0097		       00	   ScoreHundreds ds	1
+     42 U0098		       00	   ScoreTens  ds	1
+     43 U0099		       00	   ScoreOnes  ds	1
+     44 U009a
+     45 U009a		       00	   HundredsOffset ds	1
+     46 U009b		       00	   TensOffset ds	1
+     47 U009c		       00	   OnesOffset ds	1
+     48 U009d
+     49 U009d		       00	   ScoreDisplayBufferHundreds ds	1
+     50 U009e		       00	   ScoreDisplayBufferTens ds	1
+     51 U009f		       00	   ScoreDisplayBufferOnes ds	1
+     52 U00a0
+     53 U00a0		       00	   TimerCounter5 ds	1
+     54 U00a1		       00	   TimerCounter20 ds	1
+     55 U00a2
+     56 U00a2		       00	   PlayerReflectedBuffer ds	1
+     57 U00a3		       00	   GhostReflectedBuffer ds	1
+     58 U00a4
+     59 U00a4		       00	   LifeCount  ds	1
+     60 U00a5		       00	   IsPlayingDeathAnimation ds	1
+     61 U00a6
+     62 U00a6							;==================================================================================
+     63 U00a6							; Program Initialization
+     64 U00a6							;==================================================================================
+     65 U00a6
+     66  fa8c ????				      SEG	Executable
+     67  f000					      ORG	$F000
+     68  f000
+     69  f000				   Reset
+     70  f000				   ClearMemory
+     71  f000		       a2 00		      LDX	#0
+     72  f002		       9a		      TXS
+     73  f003		       48		      PHA
+     74  f004		       8a		      TXA
+     75  f005
+     76  f005				   ClearMemoryLoop
+     77  f005		       48		      PHA
+     78  f006		       ca		      DEX
+     79  f007		       d0 fc		      BNE	ClearMemoryLoop
+     80  f009
+     81  f009		       20 58 f1 	      JSR	InitVariables
+     82  f00c
+     83  f00c							;==================================================================================
+     84  f00c							; Main Loop
+     85  f00c							;==================================================================================
+     86  f00c
+     87  f00c				   Main
+     88  f00c		       20 1b f0 	      JSR	HandleVSync
+     89  f00f		       20 2a f0 	      JSR	HandleVBlank
+     90  f012		       20 48 f0 	      JSR	MainKernel
+     91  f015		       20 dd f0 	      JSR	Overscan
+     92  f018		       4c 0c f0 	      JMP	Main
+     93  f01b
+     94  f01b							;==================================================================================
+     95  f01b							; HandleVSync
+     96  f01b							;==================================================================================
+     97  f01b
+     98  f01b				   HandleVSync
+     99  f01b		       a9 00		      LDA	#0
+    100  f01d		       85 01		      STA	VBLANK
+    101  f01f		       a9 02		      LDA	#2
+    102  f021		       85 00		      STA	VSYNC
+    103  f023
+    104  f023				   VSyncLoop
+    105  f023		       85 02		      STA	WSYNC
+    106  f025		       85 02		      STA	WSYNC
+    107  f027		       85 02		      STA	WSYNC
+    108  f029
+    109  f029		       60		      RTS
     110  f02a
-    111  f02a				   HandleVBlank
-    112  f02a
-    113  f02a							; Initialize TIM64T
-    114  f02a		       a9 2a		      LDA	#42
-    115  f02c		       8d 96 02 	      STA	TIM64T
-    116  f02f
-    117  f02f							; Prepare Registers for VBLANK
-    118  f02f		       a9 00		      LDA	#0
-    119  f031		       85 00		      STA	VSYNC
-    120  f033		       a9 42		      LDA	#%01000010
-    121  f035		       85 01		      STA	VBLANK
-    122  f037
-    123  f037							; Processing Tasks
-    124  f037		       20 76 f3 	      JSR	GetControllerInputs
-    125  f03a		       20 b4 f3 	      JSR	GetController2InputsDEBUG
-    126  f03d		       20 31 f2 	      JSR	UpdateEntities
-    127  f040
-    128  f040				   VBlankLoop
-    129  f040		       ad 84 02 	      LDA	INTIM
-    130  f043		       d0 fb		      BNE	VBlankLoop
-    131  f045
-    132  f045		       85 02		      STA	WSYNC
-    133  f047		       60		      RTS
-    134  f048
-    135  f048							;==================================================================================
-    136  f048							; MainKernel
-    137  f048							;==================================================================================
-    138  f048
-    139  f048				   MainKernel
-    140  f048		       a9 00		      LDA	#0
-    141  f04a		       85 01		      STA	VBLANK
-    142  f04c
-    143  f04c							; Position Player and Ghost According to XPos
-    144  f04c		       20 8d f1 	      JSR	PositionSpriteX
-    145  f04f		       20 c2 f1 	      JSR	PositionGhostSpriteX
-    146  f052
-    147  f052							; Position Wafer in XPos
-    148  f052		       20 fc f1 	      JSR	PositionWaferX0
-    149  f055
-    150  f055		       a2 bf		      LDX	#191
-    151  f057		       85 02		      STA	WSYNC
-    152  f059
-    153  f059				   MainFrameLoop
-    154  f059							; First Line
-    155  f059							; Load First Playfield
-    156  f059		       bd 00 f7 	      LDA	MainBoard_STRIP_0,x	; 4  4   0
-    157  f05c		       85 0d		      STA	PF0	; 3  7   12
-    158  f05e
-    159  f05e		       bd c0 f7 	      LDA	MainBoard_STRIP_1,x	; 4  11   33
-    160  f061		       85 0e		      STA	PF1	; 3  14   42
-    161  f063
-    162  f063		       bd 80 f8 	      LDA	MainBoard_STRIP_2,x	; 4  18
-    163  f066		       85 0f		      STA	PF2	; 3  21
-    164  f068
-    165  f068							; Check if line has wafer
-    166  f068		       bd 39 f4 	      LDA	CheckLineBytes,x
-    167  f06b		       f0 14		      BEQ	DoNotDrawWafer
-    168  f06d
-    169  f06d				   DoDrawWafer
-    170  f06d							; Verify if water is picked up
-    171  f06d		       a4 8d		      LDY	WaferXPosIndex
-    172  f06f		       b9 8e 00 	      LDA	WaferArray,y
-    173  f072
-    174  f072		       bc 39 f4 	      LDY	CheckLineBytes,x
-    175  f075		       39 26 f4 	      AND	FindWaferLookUp,y
-    176  f078		       d0 07		      BNE	DoNotDrawWafer
-    177  f07a
-    178  f07a							; Draw wafer
-    179  f07a		       a9 02		      LDA	#%10
-    180  f07c		       85 1d		      STA	ENAM0
-    181  f07e		       4c 85 f0 	      JMP	AfterDrawing
-    182  f081
-    183  f081				   DoNotDrawWafer
-    184  f081		       a9 00		      LDA	#0
-    185  f083		       85 1d		      STA	ENAM0
-    186  f085
-    187  f085				   AfterDrawing
-    188  f085							; Check Vertical Sprite (P0) Drawing
-    189  f085		       8a		      TXA		; 2
-    190  f086		       38		      SEC		; 2
-    191  f087		       e5 84		      SBC	SpriteYPos	; 3
-    192  f089		       69 12		      ADC	#SPRITE_HEIGHT	; 2
-    193  f08b
-    194  f08b							; Load P0 Sprite Data
-    195  f08b		       90 05		      BCC	SkipDrawingP0	; 3
-    196  f08d		       a8		      TAY		; 3
-    197  f08e		       b1 81		      LDA	(SpriteAddrPtr),y	; 5
-    198  f090		       85 1b		      STA	GRP0	; 3
-    199  f092
-    200  f092				   SkipDrawingP0
-    201  f092							; Decrease X and Go To Next Line
-    202  f092		       85 02		      STA	WSYNC	; 3
-    203  f094		       ca		      DEX		; 2
-    204  f095		       f0 39		      BEQ	MainFrameLoopEnd	; 2 
-    205  f097
-    206  f097							; Second Line
-    207  f097
-    208  f097							; Load First Playfield
-    209  f097		       bd 00 f7 	      LDA	MainBoard_STRIP_0,x	; 4
-    210  f09a		       85 0d		      STA	PF0	; 3
-    211  f09c
-    212  f09c		       bd c0 f7 	      LDA	MainBoard_STRIP_1,x	; 4
-    213  f09f		       85 0e		      STA	PF1	; 3
-    214  f0a1
-    215  f0a1		       bd 80 f8 	      LDA	MainBoard_STRIP_2,x	; 4
-    216  f0a4		       85 0f		      STA	PF2	; 3
-    217  f0a6
-    218  f0a6							; Check Collision Between Player and Wafer
-    219  f0a6		       24 00		      BIT	CXM0P
-    220  f0a8		       50 14		      BVC	DidntGetWafer
-    221  f0aa
-    222  f0aa				   GotWafer
-    223  f0aa							; Routine to save wafer as picked up
-    224  f0aa		       a4 8d		      LDY	WaferXPosIndex
-    225  f0ac		       b9 8e 00 	      LDA	WaferArray,y
-    226  f0af
-    227  f0af		       bc 39 f4 	      LDY	CheckLineBytes,x
-    228  f0b2
-    229  f0b2							; Mark Wafer Picked Up for Frame
-    230  f0b2		       19 26 f4 	      ORA	FindWaferLookUp,y
-    231  f0b5
-    232  f0b5		       a4 8d		      LDY	WaferXPosIndex
-    233  f0b7		       99 8e 00 	      STA	WaferArray,y
-    234  f0ba
-    235  f0ba							; Reset Collision Detection
-    236  f0ba		       85 94		      STA	PickedUpWaferBuffer
-    237  f0bc		       85 2c		      STA	CXCLR
-    238  f0be
-    239  f0be				   DidntGetWafer
-    240  f0be							; Check Ghost Vertical Drawing
-    241  f0be		       8a		      TXA		; 2
-    242  f0bf		       38		      SEC		; 2
-    243  f0c0		       e5 8b		      SBC	GhostSpriteYPos	; 3
-    244  f0c2		       69 12		      ADC	#SPRITE_HEIGHT	; 2
-    245  f0c4
-    246  f0c4							; Load Ghost Sprite Data
-    247  f0c4		       90 05		      BCC	SkipGhostDrawing	; 3
-    248  f0c6		       a8		      TAY		; 3
-    249  f0c7		       b1 88		      LDA	(SpriteGhostAddrPtr),y	; 5
-    250  f0c9		       85 1c		      STA	GRP1	; 3
-    251  f0cb
-    252  f0cb				   SkipGhostDrawing
-    253  f0cb							; Decrease X and Go To Next Line
-    254  f0cb		       85 02		      STA	WSYNC	; 3
-    255  f0cd		       ca		      DEX		; 2
-    256  f0ce		       d0 89		      BNE	MainFrameLoop	; 2
-    257  f0d0
-    258  f0d0				   MainFrameLoopEnd
-    259  f0d0							; Clearing Playfield Registers
-    260  f0d0		       a9 00		      LDA	#0
-    261  f0d2		       85 0d		      STA	PF0
-    262  f0d4		       85 0e		      STA	PF1
-    263  f0d6		       85 0f		      STA	PF2
-    264  f0d8
-    265  f0d8		       85 1b		      STA	GRP0
-    266  f0da		       85 1c		      STA	GRP1
-    267  f0dc
-    268  f0dc		       60		      RTS
-    269  f0dd
-    270  f0dd							;==================================================================================
-    271  f0dd							; Overscan
-    272  f0dd							;==================================================================================
-    273  f0dd
-    274  f0dd				   Overscan
-    275  f0dd
-    276  f0dd							; Prepare Registers for Overscan Drawing
-    277  f0dd		       a9 00		      LDA	#0
-    278  f0df		       85 0b		      STA	REFP0
-    279  f0e1		       85 0c		      STA	REFP1
-    280  f0e3
-    281  f0e3		       a9 0e		      LDA	#$0E
-    282  f0e5		       85 06		      STA	COLUP0
-    283  f0e7		       85 07		      STA	COLUP1
-    284  f0e9
-    285  f0e9		       a9 03		      LDA	#%011
-    286  f0eb		       85 04		      STA	NUSIZ0
-    287  f0ed
-    288  f0ed		       85 10		      STA	RESP0
-    289  f0ef
-    290  f0ef							; Calculate Tens Offset
-    291  f0ef		       a6 98		      LDX	ScoreTens
-    292  f0f1		       bd 2e f4 	      LDA	MultBy14,x
-    293  f0f4		       85 9b		      STA	TensOffset
-    294  f0f6
-    295  f0f6							; Calculate Ones Offset
-    296  f0f6		       a6 99		      LDX	ScoreOnes
-    297  f0f8		       bd 2e f4 	      LDA	MultBy14,x
-    298  f0fb		       85 9c		      STA	OnesOffset
-    299  f0fd
-    300  f0fd							;STA RESP1
-    301  f0fd
-    302  f0fd		       a2 1d		      LDX	#29
-    303  f0ff				   OverscanLoop
-    304  f0ff
-    305  f0ff							; Is it time to draw?
-    306  f0ff		       e0 0f		      CPX	#15
-    307  f101		       90 1e		      BCC	SmallerThan17
-    308  f103
-    309  f103				   BiggerThan17
-    310  f103							; Time to draw
-    311  f103		       8a		      TXA
-    312  f104		       e9 0f		      SBC	#15
-    313  f106		       18		      CLC
-    314  f107		       65 9c		      ADC	OnesOffset
-    315  f109		       a8		      TAY
-    316  f10a		       b9 00 fc 	      LDA	BottomData,y
-    317  f10d		       85 9f		      STA	ScoreDisplayBufferOnes
-    318  f10f
-    319  f10f		       8a		      TXA
-    320  f110		       e9 0f		      SBC	#15
-    321  f112		       18		      CLC
-    322  f113		       65 9b		      ADC	TensOffset
-    323  f115		       a8		      TAY
-    324  f116		       b9 00 fc 	      LDA	BottomData,y
-    325  f119		       85 9e		      STA	ScoreDisplayBufferTens
-    326  f11b
-    327  f11b		       85 1b		      STA	GRP0
-    328  f11d		       a5 9f		      LDA	ScoreDisplayBufferOnes
-    329  f11f		       85 1b		      STA	GRP0
-    330  f121
-    331  f121				   SmallerThan17
-    332  f121		       85 02		      STA	WSYNC
-    333  f123		       ca		      DEX
-    334  f124		       d0 d9		      BNE	OverscanLoop
-    335  f126
-    336  f126							; Clear Player Registers
-    337  f126		       a9 00		      LDA	#0
-    338  f128		       85 1b		      STA	GRP0
-    339  f12a		       85 1c		      STA	GRP1
-    340  f12c
-    341  f12c							; Return NUSIZ0
-    342  f12c		       a9 20		      LDA	#%100000
-    343  f12e		       85 04		      STA	NUSIZ0
-    344  f130
-    345  f130							; Return P0 Register Reflection Value
-    346  f130		       a5 a1		      LDA	PlayerReflectedBuffer
-    347  f132		       85 0b		      STA	REFP0
-    348  f134
-    349  f134							; Return P1 Register Reflection Value
-    350  f134		       a5 a2		      LDA	GhostReflectedBuffer
-    351  f136		       85 0c		      STA	REFP1
-    352  f138
-    353  f138							; Return P0 and P1 colors
-    354  f138		       a9 1e		      LDA	#$1E
-    355  f13a		       85 06		      STA	COLUP0
-    356  f13c		       a9 58		      LDA	#$58
-    357  f13e		       85 07		      STA	COLUP1
-    358  f140
-    359  f140		       60		      RTS
-    360  f141
-    361  f141							;==================================================================================
-    362  f141							; InitVariables
-    363  f141							;==================================================================================
-    364  f141
-    365  f141				   InitVariables
-    366  f141							; Initialize BG Color and PF Color
-    367  f141		       a9 00		      LDA	#$00
-    368  f143		       85 09		      STA	COLUBK
-    369  f145		       a9 72		      LDA	#$72
-    370  f147		       85 08		      STA	COLUPF
-    371  f149
-    372  f149							; Initialize Player Color and Pattern
-    373  f149		       a9 1e		      LDA	#$1E
-    374  f14b		       85 06		      STA	COLUP0
-    375  f14d		       a9 58		      LDA	#$58
-    376  f14f		       85 07		      STA	COLUP1
-    377  f151
-    378  f151							; Initialize CTRLPF
-    379  f151		       a9 01		      LDA	#1
-    380  f153		       85 0a		      STA	CTRLPF
-    381  f155
-    382  f155							; Initialize Missile Graphics
-    383  f155		       a9 20		      LDA	#%100000
-    384  f157		       85 04		      STA	NUSIZ0
-    385  f159
-    386  f159							; Initialize Variables
-    387  f159
-    388  f159							; SpriteXPos and YPos
-    389  f159		       a9 50		      LDA	#80
-    390  f15b		       85 83		      STA	SpriteXPos
-    391  f15d		       a9 6b		      LDA	#107
-    392  f15f		       85 84		      STA	SpriteYPos
-    393  f161
-    394  f161							; SpriteGhostXPos and YPos
-    395  f161		       a9 4d		      LDA	#77
-    396  f163		       85 8a		      STA	GhostSpriteXPos
-    397  f165		       a9 82		      LDA	#130
-    398  f167		       85 8b		      STA	GhostSpriteYPos
-    399  f169
-    400  f169							; Timer Counter
-    401  f169		       a9 00		      LDA	#0
-    402  f16b		       85 a0		      STA	TimerCounter
-    403  f16d
-    404  f16d							; Score
-    405  f16d		       85 98		      STA	ScoreTens
-    406  f16f		       85 99		      STA	ScoreOnes
-    407  f171
-    408  f171							; Set Controller Inputs
-    409  f171		       8d 81 02 	      STA	SWACNT
-    410  f174
-    411  f174							; Set SpriteAnimationIndex
-    412  f174		       85 95		      STA	SpriteAnimationIndex
-    413  f176		       85 96		      STA	IsFrameGoingUp
-    414  f178
-    415  f178							; Set P0 and P1 Delays
-    416  f178		       85 25		      STA	VDELP0
-    417  f17a
-    418  f17a							; Set Wafer XPos Index
-    419  f17a		       85 8d		      STA	WaferXPosIndex
-    420  f17c
-    421  f17c							; PacmanSpriteDataPointer
-    422  f17c		       a9 00		      LDA	#<Sprite0Data
-    423  f17e		       85 81		      STA	SpriteAddrPtr
-    424  f180		       a9 f6		      LDA	#>Sprite0Data
-    425  f182		       85 82		      STA	SpriteAddrPtr+1
-    426  f184
-    427  f184							; GhostSpriteDataPointer
-    428  f184		       a9 48		      LDA	#<SpriteGhostData
-    429  f186		       85 88		      STA	SpriteGhostAddrPtr
-    430  f188		       a9 f6		      LDA	#>SpriteGhostData
-    431  f18a		       85 89		      STA	SpriteGhostAddrPtr+1
-    432  f18c
-    433  f18c		       60		      RTS
-    434  f18d
-    435  f18d							;==================================================================================
-    436  f18d							; PositionSpriteX - Subroutine to position player sprite
-    437  f18d							;==================================================================================
-    438  f18d
-    439  f18d				   PositionSpriteX
-    440  f18d		       85 02		      STA	WSYNC	; 3
-    441  f18f		       85 2b		      STA	HMCLR	; clear any previous movement	  ; 3
-    442  f191
-    443  f191				   PosSP
-    444  f191
-    445  f191		       a5 83		      LDA	SpriteXPos	; 4
-    446  f193		       a8		      TAY		; 2
-    447  f194
-    448  f194							; Divide by 16
-    449  f194		       4a		      LSR		; 2
-    450  f195		       4a		      LSR		; 2
-    451  f196		       4a		      LSR		; 2
-    452  f197		       4a		      LSR		; 2
-    453  f198		       85 80		      STA	PS_temp	; 3
-    454  f19a
-    455  f19a		       98		      TYA		; 2
-    456  f19b		       29 0f		      AND	#15	; 2
-    457  f19d
-    458  f19d		       18		      CLC		; 2
-    459  f19e
-    460  f19e		       65 80		      ADC	PS_temp	; 3
-    461  f1a0		       a4 80		      LDY	PS_temp	; 3
-    462  f1a2
-    463  f1a2		       c9 0f		      CMP	#15	; 2
-    464  f1a4		       90 03		      BCC	NH	; 3
-    465  f1a6		       e9 0f		      SBC	#15	; 2
-    466  f1a8		       c8		      INY		; 2
-    467  f1a9
-    468  f1a9				   NH
-    469  f1a9							; Use remainder for fine adjustment
-    470  f1a9		       49 07		      EOR	#7	; 2
-    471  f1ab		       0a		      ASL		; 2
-    472  f1ac		       0a		      ASL		; 2
-    473  f1ad		       0a		      ASL		; 2
-    474  f1ae		       0a		      ASL		; 2
-    475  f1af
-    476  f1af		       85 20		      STA	HMP0	; fine movement	     ; 4
-    477  f1b1		       85 02		      STA	WSYNC	; 3
-    478  f1b3
-    479  f1b3		       20 c1 f1 	      JSR	Ret	; just a 12 cycle delay     ; 12
-    480  f1b6		       24 00		      BIT	0	; 15 cycles = 3 loops :)    ; 3
-    481  f1b8
-    482  f1b8
-    483  f1b8				   Jiggle
-    484  f1b8		       88		      DEY		; 2
-    485  f1b9		       10 fd		      BPL	Jiggle	; 3
-    486  f1bb
-    487  f1bb		       85 10		      STA	RESP0	; 4
-    488  f1bd
-    489  f1bd		       85 02		      STA	WSYNC	; 3
-    490  f1bf		       85 2a		      STA	HMOVE	; 3
-    491  f1c1
-    492  f1c1				   Ret
-    493  f1c1		       60		      RTS		; 6
-    494  f1c2
-    495  f1c2							;==================================================================================
-    496  f1c2							; PositionGhostSpriteX - Subroutine to position ghost sprite
-    497  f1c2							;==================================================================================
-    498  f1c2
-    499  f1c2				   PositionGhostSpriteX
-    500  f1c2		       85 02		      STA	WSYNC	; 3
-    501  f1c4		       85 2b		      STA	HMCLR	; clear any previous movement	  ; 3
-    502  f1c6
-    503  f1c6		       a2 01		      LDX	#1	; sprite index 		  ; 2
-    504  f1c8
-    505  f1c8				   PosSP1
-    506  f1c8
-    507  f1c8		       b5 89		      LDA	GhostSpriteXPos-1,x	; 4
-    508  f1ca		       a8		      TAY		; 2
-    509  f1cb
-    510  f1cb							; Divide by 16
-    511  f1cb		       4a		      LSR		; 2
-    512  f1cc		       4a		      LSR		; 2
-    513  f1cd		       4a		      LSR		; 2
-    514  f1ce		       4a		      LSR		; 2
-    515  f1cf		       85 80		      STA	PS_temp	; 3
-    516  f1d1
-    517  f1d1		       98		      TYA		; 2
-    518  f1d2		       29 0f		      AND	#15	; 2
-    519  f1d4
-    520  f1d4		       18		      CLC		; 2
-    521  f1d5
-    522  f1d5		       65 80		      ADC	PS_temp	; 3
-    523  f1d7		       a4 80		      LDY	PS_temp	; 3
-    524  f1d9
-    525  f1d9		       c9 0f		      CMP	#15	; 2
-    526  f1db		       90 03		      BCC	NH1	; 3
-    527  f1dd		       e9 0f		      SBC	#15	; 2
-    528  f1df		       c8		      INY		; 2
-    529  f1e0
-    530  f1e0				   NH1
-    531  f1e0							; Use remainder for fine adjustment
-    532  f1e0		       49 07		      EOR	#7	; 2
-    533  f1e2		       0a		      ASL		; 2
-    534  f1e3		       0a		      ASL		; 2
-    535  f1e4		       0a		      ASL		; 2
-    536  f1e5		       0a		      ASL		; 2
-    537  f1e6
-    538  f1e6		       95 20		      STA	HMP1-1,x	; fine movement	     ; 4
-    539  f1e8		       85 02		      STA	WSYNC	; 3
-    540  f1ea
-    541  f1ea		       20 fb f1 	      JSR	Ret1	; just a 12 cycle delay     ; 12
-    542  f1ed		       24 00		      BIT	0	; 15 cycles = 3 loops :)    ; 3
-    543  f1ef
-    544  f1ef
-    545  f1ef				   Jiggle1
-    546  f1ef		       88		      DEY		; 2
-    547  f1f0		       10 fd		      BPL	Jiggle1	; 3
-    548  f1f2
-    549  f1f2		       95 10		      STA	RESP1-1,x	; 4
-    550  f1f4
-    551  f1f4		       ca		      DEX		; 2
-    552  f1f5		       d0 d1		      BNE	PosSP1	; 3
-    553  f1f7
-    554  f1f7		       85 02		      STA	WSYNC	; 3
-    555  f1f9		       85 2a		      STA	HMOVE	; 3
-    556  f1fb
-    557  f1fb				   Ret1
-    558  f1fb		       60		      RTS		; 6
-    559  f1fc
-    560  f1fc							;==================================================================================
-    561  f1fc							; PositionWaferX0 - Subroutine to position wafer missile
-    562  f1fc							;==================================================================================
-    563  f1fc
-    564  f1fc				   PositionWaferX0
-    565  f1fc		       85 02		      STA	WSYNC	; 3
-    566  f1fe		       85 2b		      STA	HMCLR	; clear any previous movement	  ; 3
-    567  f200
-    568  f200				   PosSPWafer0
-    569  f200
-    570  f200		       a5 8c		      LDA	CurWaferXPos0	; 4
-    571  f202		       a8		      TAY		; 2
-    572  f203
-    573  f203							; Divide by 16
-    574  f203		       4a		      LSR		; 2
-    575  f204		       4a		      LSR		; 2
-    576  f205		       4a		      LSR		; 2
-    577  f206		       4a		      LSR		; 2
-    578  f207		       85 80		      STA	PS_temp	; 3
-    579  f209
-    580  f209		       98		      TYA		; 2
-    581  f20a		       29 0f		      AND	#15	; 2
-    582  f20c
-    583  f20c		       18		      CLC		; 2
-    584  f20d
-    585  f20d		       65 80		      ADC	PS_temp	; 3
-    586  f20f		       a4 80		      LDY	PS_temp	; 3
-    587  f211
-    588  f211		       c9 0f		      CMP	#15	; 2
-    589  f213		       90 03		      BCC	NHWafer0	; 3
-    590  f215		       e9 0f		      SBC	#15	; 2
-    591  f217		       c8		      INY		; 2
-    592  f218
-    593  f218				   NHWafer0
-    594  f218							; Use remainder for fine adjustment
-    595  f218		       49 07		      EOR	#7	; 2
-    596  f21a		       0a		      ASL		; 2
-    597  f21b		       0a		      ASL		; 2
-    598  f21c		       0a		      ASL		; 2
-    599  f21d		       0a		      ASL		; 2
-    600  f21e
-    601  f21e		       85 22		      STA	HMM0	; fine movement	     ; 4
-    602  f220		       85 02		      STA	WSYNC	; 3
-    603  f222
-    604  f222		       20 30 f2 	      JSR	RetWafer0	; just a 12 cycle delay     ; 12
-    605  f225		       24 00		      BIT	0	; 15 cycles = 3 loops :)    ; 3
-    606  f227
-    607  f227
-    608  f227				   JiggleWafer0
-    609  f227		       88		      DEY		; 2
-    610  f228		       10 fd		      BPL	JiggleWafer0	; 3
-    611  f22a
-    612  f22a		       85 12		      STA	RESM0	; 4
-    613  f22c
-    614  f22c		       85 02		      STA	WSYNC	; 3
-    615  f22e		       85 2a		      STA	HMOVE	; 3
-    616  f230
-    617  f230				   RetWafer0
-    618  f230		       60		      RTS		; 6
-    619  f231
-    620  f231							;==================================================================================
-    621  f231							; UpdateEntities - Update Game Logic
-    622  f231							;==================================================================================
-    623  f231
-    624  f231				   UpdateEntities
-    625  f231							; Check Player Collision
-    626  f231		       20 5b f2 	      JSR	CheckPlayerCollision
-    627  f234
-    628  f234							; Update Sprite Pos According to Velocity Mask
-    629  f234		       20 b0 f2 	      JSR	UpdatePlayerPosition
-    630  f237
-    631  f237							; Remove Collisions After Checks
-    632  f237		       85 2c		      STA	CXCLR
-    633  f239
-    634  f239							; Update Timer
-    635  f239		       20 ec f3 	      JSR	UpdateTimer
-    636  f23c
-    637  f23c							; Increase Score According with Picked Up Wafer Buffer
-    638  f23c		       20 fc f3 	      JSR	UpdateScore
-    639  f23f
-    640  f23f							; Change Animation Frame
-    641  f23f		       20 15 f3 	      JSR	ChangeAnimationFrame
-    642  f242
-    643  f242							; Apply Animation Frame
-    644  f242		       20 38 f3 	      JSR	ApplyAnimationFrame
-    645  f245
-    646  f245							; Update Wafer XPos Index
-    647  f245		       20 49 f2 	      JSR	UpdateWaferIndex
-    648  f248
-    649  f248		       60		      RTS
-    650  f249
-    651  f249							;==================================================================================
-    652  f249							; UpdateWaferIndex - increase wafer XPos Index and apply it
-    653  f249							;==================================================================================
+    111  f02a							;==================================================================================
+    112  f02a							; HandleVBlank
+    113  f02a							; Handle Part of Game Logic
+    114  f02a							;==================================================================================
+    115  f02a
+    116  f02a				   HandleVBlank
+    117  f02a
+    118  f02a							; Initialize TIM64T
+    119  f02a		       a9 2a		      LDA	#42
+    120  f02c		       8d 96 02 	      STA	TIM64T
+    121  f02f
+    122  f02f							; Prepare Registers for VBLANK
+    123  f02f		       a9 00		      LDA	#0
+    124  f031		       85 00		      STA	VSYNC
+    125  f033		       a9 42		      LDA	#%01000010
+    126  f035		       85 01		      STA	VBLANK
+    127  f037
+    128  f037							; Processing Tasks
+    129  f037		       20 39 f4 	      JSR	GetControllerInputs
+    130  f03a		       20 7b f4 	      JSR	GetController2InputsDEBUG
+    131  f03d		       20 50 f2 	      JSR	UpdateEntities
+    132  f040
+    133  f040				   VBlankLoop
+    134  f040		       ad 84 02 	      LDA	INTIM
+    135  f043		       d0 fb		      BNE	VBlankLoop
+    136  f045
+    137  f045		       85 02		      STA	WSYNC
+    138  f047		       60		      RTS
+    139  f048
+    140  f048							;==================================================================================
+    141  f048							; MainKernel
+    142  f048							;==================================================================================
+    143  f048
+    144  f048				   MainKernel
+    145  f048		       a9 00		      LDA	#0
+    146  f04a		       85 01		      STA	VBLANK
+    147  f04c
+    148  f04c							; Position Player and Ghost According to XPos
+    149  f04c		       20 ac f1 	      JSR	PositionSpriteX
+    150  f04f		       20 e1 f1 	      JSR	PositionGhostSpriteX
+    151  f052
+    152  f052							; Position Wafer in XPos
+    153  f052		       20 1b f2 	      JSR	PositionWaferX0
+    154  f055
+    155  f055		       a2 bf		      LDX	#191
+    156  f057		       85 02		      STA	WSYNC
+    157  f059
+    158  f059				   MainFrameLoop
+    159  f059							; First Line
+    160  f059							; Load First Playfield
+    161  f059		       bd 00 f7 	      LDA	MainBoard_STRIP_0,x	; 4  4   0
+    162  f05c		       85 0d		      STA	PF0	; 3  7   12
+    163  f05e
+    164  f05e		       bd c0 f7 	      LDA	MainBoard_STRIP_1,x	; 4  11   33
+    165  f061		       85 0e		      STA	PF1	; 3  14   42
+    166  f063
+    167  f063		       bd 80 f8 	      LDA	MainBoard_STRIP_2,x	; 4  18
+    168  f066		       85 0f		      STA	PF2	; 3  21
+    169  f068
+    170  f068							; Check if line has wafer
+    171  f068		       bd 1f f5 	      LDA	CheckLineBytes,x
+    172  f06b		       f0 14		      BEQ	DoNotDrawWafer
+    173  f06d
+    174  f06d				   CheckIfWaferCollected
+    175  f06d							; Verify if wafer is picked up
+    176  f06d		       a4 8d		      LDY	WaferXPosIndex
+    177  f06f		       b9 8e 00 	      LDA	WaferArray,y
+    178  f072
+    179  f072		       bc 1f f5 	      LDY	CheckLineBytes,x
+    180  f075		       39 08 f5 	      AND	FindWaferLookUp,y
+    181  f078		       d0 07		      BNE	DoNotDrawWafer
+    182  f07a
+    183  f07a							; Draw wafer
+    184  f07a		       a9 02		      LDA	#%10
+    185  f07c		       85 1d		      STA	ENAM0
+    186  f07e		       4c 85 f0 	      JMP	AfterDrawing
+    187  f081
+    188  f081				   DoNotDrawWafer
+    189  f081		       a9 00		      LDA	#0
+    190  f083		       85 1d		      STA	ENAM0
+    191  f085
+    192  f085				   AfterDrawing
+    193  f085							; Check Vertical Sprite (P0) Drawing
+    194  f085		       8a		      TXA		; 2
+    195  f086		       38		      SEC		; 2
+    196  f087		       e5 84		      SBC	SpriteYPos	; 3
+    197  f089		       69 12		      ADC	#SPRITE_HEIGHT	; 2
+    198  f08b		       90 05		      BCC	SkipDrawingP0	; 3
+    199  f08d
+    200  f08d							; Load P0 Sprite Data
+    201  f08d		       a8		      TAY		; 3
+    202  f08e		       b1 81		      LDA	(SpriteAddrPtr),y	; 5
+    203  f090		       85 1b		      STA	GRP0	; 3
+    204  f092
+    205  f092				   SkipDrawingP0
+    206  f092							; Decrease X and Go To Next Line
+    207  f092		       85 02		      STA	WSYNC	; 3
+    208  f094		       ca		      DEX		; 2
+    209  f095		       f0 39		      BEQ	MainFrameLoopEnd	; 2 
+    210  f097
+    211  f097							; Second Line
+    212  f097
+    213  f097							; Load First Playfield
+    214  f097		       bd 00 f7 	      LDA	MainBoard_STRIP_0,x	; 4
+    215  f09a		       85 0d		      STA	PF0	; 3
+    216  f09c
+    217  f09c		       bd c0 f7 	      LDA	MainBoard_STRIP_1,x	; 4
+    218  f09f		       85 0e		      STA	PF1	; 3
+    219  f0a1
+    220  f0a1		       bd 80 f8 	      LDA	MainBoard_STRIP_2,x	; 4
+    221  f0a4		       85 0f		      STA	PF2	; 3
+    222  f0a6
+    223  f0a6							; Check Collision Between Player and Wafer
+    224  f0a6		       24 00		      BIT	CXM0P
+    225  f0a8		       50 14		      BVC	DidntGetWafer
+    226  f0aa
+    227  f0aa				   GotWafer
+    228  f0aa							; Routine to save wafer as picked up
+    229  f0aa		       a4 8d		      LDY	WaferXPosIndex
+    230  f0ac		       b9 8e 00 	      LDA	WaferArray,y
+    231  f0af
+    232  f0af		       bc 1f f5 	      LDY	CheckLineBytes,x
+    233  f0b2
+    234  f0b2							; Mark Wafer Picked Up for Frame
+    235  f0b2		       19 08 f5 	      ORA	FindWaferLookUp,y
+    236  f0b5
+    237  f0b5		       a4 8d		      LDY	WaferXPosIndex
+    238  f0b7		       99 8e 00 	      STA	WaferArray,y
+    239  f0ba
+    240  f0ba							; Reset Collision Detection
+    241  f0ba		       85 94		      STA	PickedUpWaferBuffer
+    242  f0bc		       85 2c		      STA	CXCLR
+    243  f0be
+    244  f0be				   DidntGetWafer
+    245  f0be							; Check Ghost Vertical Drawing
+    246  f0be		       8a		      TXA		; 2
+    247  f0bf		       38		      SEC		; 2
+    248  f0c0		       e5 8b		      SBC	GhostSpriteYPos	; 3
+    249  f0c2		       69 12		      ADC	#SPRITE_HEIGHT	; 2
+    250  f0c4		       90 05		      BCC	SkipGhostDrawing	; 3
+    251  f0c6
+    252  f0c6							; Load Ghost Sprite Data
+    253  f0c6		       a8		      TAY		; 3
+    254  f0c7		       b1 88		      LDA	(SpriteGhostAddrPtr),y	; 5
+    255  f0c9		       85 1c		      STA	GRP1	; 3
+    256  f0cb
+    257  f0cb				   SkipGhostDrawing
+    258  f0cb							; Decrease X and Go To Next Line
+    259  f0cb		       85 02		      STA	WSYNC	; 3
+    260  f0cd		       ca		      DEX		; 2
+    261  f0ce		       d0 89		      BNE	MainFrameLoop	; 2
+    262  f0d0
+    263  f0d0				   MainFrameLoopEnd
+    264  f0d0							; Clearing Playfield Registers
+    265  f0d0		       a9 00		      LDA	#0
+    266  f0d2		       85 0d		      STA	PF0
+    267  f0d4		       85 0e		      STA	PF1
+    268  f0d6		       85 0f		      STA	PF2
+    269  f0d8
+    270  f0d8		       85 1b		      STA	GRP0
+    271  f0da		       85 1c		      STA	GRP1
+    272  f0dc
+    273  f0dc		       60		      RTS
+    274  f0dd
+    275  f0dd							;==================================================================================
+    276  f0dd							; Overscan
+    277  f0dd							;==================================================================================
+    278  f0dd
+    279  f0dd				   Overscan
+    280  f0dd
+    281  f0dd							; Prepare Registers for Overscan Drawing
+    282  f0dd		       a9 00		      LDA	#0
+    283  f0df		       85 0b		      STA	REFP0
+    284  f0e1		       85 0c		      STA	REFP1
+    285  f0e3
+    286  f0e3		       a9 0e		      LDA	#$0E
+    287  f0e5		       85 07		      STA	COLUP1
+    288  f0e7
+    289  f0e7		       a9 03		      LDA	#%011
+    290  f0e9
+    291  f0e9							; Triplicate P1 (Score)
+    292  f0e9		       85 05		      STA	NUSIZ1
+    293  f0eb
+    294  f0eb							; Select Ammount of Icons According to LifeCount
+    295  f0eb		       a4 a4		      LDY	LifeCount
+    296  f0ed
+    297  f0ed							; Select position of Score
+    298  f0ed		       85 11		      STA	RESP1
+    299  f0ef
+    300  f0ef		       b9 1b f5 	      LDA	LivesNUSIZ0LookUp,y
+    301  f0f2		       85 04		      STA	NUSIZ0
+    302  f0f4
+    303  f0f4							; Calculate Hundreds Offset
+    304  f0f4		       a6 97		      LDX	ScoreHundreds
+    305  f0f6		       bd 10 f5 	      LDA	MultBy14,x
+    306  f0f9		       85 9a		      STA	HundredsOffset
+    307  f0fb
+    308  f0fb							; Calculate Tens Offset
+    309  f0fb		       a6 98		      LDX	ScoreTens
+    310  f0fd		       bd 10 f5 	      LDA	MultBy14,x
+    311  f100		       85 9b		      STA	TensOffset
+    312  f102
+    313  f102							; Calculate Ones Offset
+    314  f102		       a6 99		      LDX	ScoreOnes
+    315  f104		       bd 10 f5 	      LDA	MultBy14,x
+    316  f107		       85 9c		      STA	OnesOffset
+    317  f109
+    318  f109		       85 02		      STA	WSYNC
+    319  f10b
+    320  f10b							; Select position of Lives
+    321  f10b		       85 10		      STA	RESP0
+    322  f10d
+    323  f10d		       a2 1d		      LDX	#29
+    324  f10f				   OverscanLoop
+    325  f10f
+    326  f10f							; Is it time to draw?
+    327  f10f		       e0 10		      CPX	#16
+    328  f111		       90 27		      BCC	SmallerThan16
+    329  f113
+    330  f113				   BiggerThan16
+    331  f113							; Time to draw
+    332  f113
+    333  f113							; Draw Lives
+    334  f113		       bd c2 f6 	      LDA	SpriteLifeData,x
+    335  f116		       85 1b		      STA	GRP0
+    336  f118
+    337  f118							; Prepare draw bits for hundreds
+    338  f118		       18		      CLC
+    339  f119		       8a		      TXA
+    340  f11a		       65 9a		      ADC	HundredsOffset
+    341  f11c		       a8		      TAY
+    342  f11d		       b9 00 fa 	      LDA	BottomData,y
+    343  f120		       85 1c		      STA	GRP1
+    344  f122
+    345  f122							; Prepare draw bits for ones
+    346  f122		       18		      CLC
+    347  f123		       8a		      TXA
+    348  f124		       65 9c		      ADC	OnesOffset
+    349  f126		       a8		      TAY
+    350  f127		       b9 00 fa 	      LDA	BottomData,y
+    351  f12a		       85 9f		      STA	ScoreDisplayBufferOnes
+    352  f12c
+    353  f12c							; Prepare draw bits for tens
+    354  f12c		       18		      CLC
+    355  f12d		       8a		      TXA
+    356  f12e		       65 9b		      ADC	TensOffset
+    357  f130		       a8		      TAY
+    358  f131		       b9 00 fa 	      LDA	BottomData,y
+    359  f134
+    360  f134							; Draw Tens
+    361  f134		       85 1c		      STA	GRP1
+    362  f136
+    363  f136							; Draw Ones
+    364  f136		       a5 9f		      LDA	ScoreDisplayBufferOnes
+    365  f138		       85 1c		      STA	GRP1
+    366  f13a
+    367  f13a				   SmallerThan16
+    368  f13a		       ca		      DEX
+    369  f13b		       85 02		      STA	WSYNC
+    370  f13d		       d0 d0		      BNE	OverscanLoop
+    371  f13f
+    372  f13f							; Clear Player Registers
+    373  f13f		       a9 00		      LDA	#0
+    374  f141		       85 1b		      STA	GRP0
+    375  f143		       85 1c		      STA	GRP1
+    376  f145
+    377  f145							; Return NUSIZ0 and NUSIZ1
+    378  f145		       a9 20		      LDA	#%100000
+    379  f147		       85 04		      STA	NUSIZ0
+    380  f149		       85 05		      STA	NUSIZ1
+    381  f14b
+    382  f14b							; Return P0 Register Reflection Value
+    383  f14b		       a5 a2		      LDA	PlayerReflectedBuffer
+    384  f14d		       85 0b		      STA	REFP0
+    385  f14f
+    386  f14f							; Return P1 Register Reflection Value
+    387  f14f		       a5 a3		      LDA	GhostReflectedBuffer
+    388  f151		       85 0c		      STA	REFP1
+    389  f153
+    390  f153							; Return P1 color
+    391  f153		       a9 58		      LDA	#$58
+    392  f155		       85 07		      STA	COLUP1
+    393  f157
+    394  f157		       60		      RTS
+    395  f158
+    396  f158							;==================================================================================
+    397  f158							; InitVariables
+    398  f158							;==================================================================================
+    399  f158
+    400  f158				   InitVariables
+    401  f158							; Initialize BG Color and PF Color
+    402  f158		       a9 00		      LDA	#$00
+    403  f15a		       85 09		      STA	COLUBK
+    404  f15c		       a9 72		      LDA	#$72
+    405  f15e		       85 08		      STA	COLUPF
+    406  f160
+    407  f160							; Initialize Player Color and Pattern
+    408  f160		       a9 1e		      LDA	#$1E
+    409  f162		       85 06		      STA	COLUP0
+    410  f164		       a9 58		      LDA	#$58
+    411  f166		       85 07		      STA	COLUP1
+    412  f168
+    413  f168							; Initialize CTRLPF
+    414  f168		       a9 01		      LDA	#1
+    415  f16a		       85 0a		      STA	CTRLPF
+    416  f16c
+    417  f16c							; Initialize Missile Graphics
+    418  f16c		       a9 20		      LDA	#%100000
+    419  f16e		       85 04		      STA	NUSIZ0
+    420  f170
+    421  f170							; Initialize Variables
+    422  f170
+    423  f170							; SpriteXPos and YPos
+    424  f170		       a9 50		      LDA	#80
+    425  f172		       85 83		      STA	SpriteXPos
+    426  f174		       a9 6b		      LDA	#107
+    427  f176		       85 84		      STA	SpriteYPos
+    428  f178
+    429  f178							; SpriteGhostXPos and YPos
+    430  f178		       a9 4d		      LDA	#77
+    431  f17a		       85 8a		      STA	GhostSpriteXPos
+    432  f17c		       a9 8c		      LDA	#140
+    433  f17e		       85 8b		      STA	GhostSpriteYPos
+    434  f180
+    435  f180							; LifeCount
+    436  f180		       a9 03		      LDA	#3
+    437  f182		       85 a4		      STA	LifeCount
+    438  f184
+    439  f184							; Timer Counter
+    440  f184		       a9 00		      LDA	#0
+    441  f186		       85 a0		      STA	TimerCounter5
+    442  f188		       85 a1		      STA	TimerCounter20
+    443  f18a
+    444  f18a							; Score
+    445  f18a		       85 98		      STA	ScoreTens
+    446  f18c		       85 99		      STA	ScoreOnes
+    447  f18e
+    448  f18e							; Set Controller Inputs
+    449  f18e		       8d 81 02 	      STA	SWACNT
+    450  f191
+    451  f191							; Set SpriteAnimationIndex
+    452  f191		       85 95		      STA	SpriteAnimationIndex
+    453  f193
+    454  f193							; Set P0 and P1 Delays
+    455  f193		       85 25		      STA	VDELP0
+    456  f195
+    457  f195							; Set Wafer XPos Index
+    458  f195		       85 8d		      STA	WaferXPosIndex
+    459  f197
+    460  f197							; Set IsFrameGoingUp
+    461  f197		       a9 01		      LDA	#1
+    462  f199		       85 96		      STA	IsFrameGoingUp
+    463  f19b
+    464  f19b							; PacmanSpriteDataPointer
+    465  f19b		       a9 00		      LDA	#<Sprite0Data
+    466  f19d		       85 81		      STA	SpriteAddrPtr
+    467  f19f		       a9 f6		      LDA	#>Sprite0Data
+    468  f1a1		       85 82		      STA	SpriteAddrPtr+1
+    469  f1a3
+    470  f1a3							; GhostSpriteDataPointer
+    471  f1a3		       a9 b0		      LDA	#<SpriteGhostData
+    472  f1a5		       85 88		      STA	SpriteGhostAddrPtr
+    473  f1a7		       a9 f6		      LDA	#>SpriteGhostData
+    474  f1a9		       85 89		      STA	SpriteGhostAddrPtr+1
+    475  f1ab
+    476  f1ab		       60		      RTS
+    477  f1ac
+    478  f1ac							;==================================================================================
+    479  f1ac							; PositionSpriteX - Subroutine to position player sprite
+    480  f1ac							;==================================================================================
+    481  f1ac
+    482  f1ac				   PositionSpriteX
+    483  f1ac		       85 02		      STA	WSYNC	; 3
+    484  f1ae		       85 2b		      STA	HMCLR	; clear any previous movement	  ; 3
+    485  f1b0
+    486  f1b0				   PosSP
+    487  f1b0
+    488  f1b0		       a5 83		      LDA	SpriteXPos	; 4
+    489  f1b2		       a8		      TAY		; 2
+    490  f1b3
+    491  f1b3							; Divide by 16
+    492  f1b3		       4a		      LSR		; 2
+    493  f1b4		       4a		      LSR		; 2
+    494  f1b5		       4a		      LSR		; 2
+    495  f1b6		       4a		      LSR		; 2
+    496  f1b7		       85 80		      STA	PS_temp	; 3
+    497  f1b9
+    498  f1b9		       98		      TYA		; 2
+    499  f1ba		       29 0f		      AND	#15	; 2
+    500  f1bc
+    501  f1bc		       18		      CLC		; 2
+    502  f1bd
+    503  f1bd		       65 80		      ADC	PS_temp	; 3
+    504  f1bf		       a4 80		      LDY	PS_temp	; 3
+    505  f1c1
+    506  f1c1		       c9 0f		      CMP	#15	; 2
+    507  f1c3		       90 03		      BCC	NH	; 3
+    508  f1c5		       e9 0f		      SBC	#15	; 2
+    509  f1c7		       c8		      INY		; 2
+    510  f1c8
+    511  f1c8				   NH
+    512  f1c8							; Use remainder for fine adjustment
+    513  f1c8		       49 07		      EOR	#7	; 2
+    514  f1ca		       0a		      ASL		; 2
+    515  f1cb		       0a		      ASL		; 2
+    516  f1cc		       0a		      ASL		; 2
+    517  f1cd		       0a		      ASL		; 2
+    518  f1ce
+    519  f1ce		       85 20		      STA	HMP0	; fine movement	     ; 4
+    520  f1d0		       85 02		      STA	WSYNC	; 3
+    521  f1d2
+    522  f1d2		       20 e0 f1 	      JSR	Ret	; just a 12 cycle delay     ; 12
+    523  f1d5		       24 00		      BIT	0	; 15 cycles = 3 loops :)    ; 3
+    524  f1d7
+    525  f1d7
+    526  f1d7				   Jiggle
+    527  f1d7		       88		      DEY		; 2
+    528  f1d8		       10 fd		      BPL	Jiggle	; 3
+    529  f1da
+    530  f1da		       85 10		      STA	RESP0	; 4
+    531  f1dc
+    532  f1dc		       85 02		      STA	WSYNC	; 3
+    533  f1de		       85 2a		      STA	HMOVE	; 3
+    534  f1e0
+    535  f1e0				   Ret
+    536  f1e0		       60		      RTS		; 6
+    537  f1e1
+    538  f1e1							;==================================================================================
+    539  f1e1							; PositionGhostSpriteX - Subroutine to position ghost sprite
+    540  f1e1							;==================================================================================
+    541  f1e1
+    542  f1e1				   PositionGhostSpriteX
+    543  f1e1		       85 02		      STA	WSYNC	; 3
+    544  f1e3		       85 2b		      STA	HMCLR	; clear any previous movement	  ; 3
+    545  f1e5
+    546  f1e5		       a2 01		      LDX	#1	; sprite index 		  ; 2
+    547  f1e7
+    548  f1e7				   PosSP1
+    549  f1e7
+    550  f1e7		       b5 89		      LDA	GhostSpriteXPos-1,x	; 4
+    551  f1e9		       a8		      TAY		; 2
+    552  f1ea
+    553  f1ea							; Divide by 16
+    554  f1ea		       4a		      LSR		; 2
+    555  f1eb		       4a		      LSR		; 2
+    556  f1ec		       4a		      LSR		; 2
+    557  f1ed		       4a		      LSR		; 2
+    558  f1ee		       85 80		      STA	PS_temp	; 3
+    559  f1f0
+    560  f1f0		       98		      TYA		; 2
+    561  f1f1		       29 0f		      AND	#15	; 2
+    562  f1f3
+    563  f1f3		       18		      CLC		; 2
+    564  f1f4
+    565  f1f4		       65 80		      ADC	PS_temp	; 3
+    566  f1f6		       a4 80		      LDY	PS_temp	; 3
+    567  f1f8
+    568  f1f8		       c9 0f		      CMP	#15	; 2
+    569  f1fa		       90 03		      BCC	NH1	; 3
+    570  f1fc		       e9 0f		      SBC	#15	; 2
+    571  f1fe		       c8		      INY		; 2
+    572  f1ff
+    573  f1ff				   NH1
+    574  f1ff							; Use remainder for fine adjustment
+    575  f1ff		       49 07		      EOR	#7	; 2
+    576  f201		       0a		      ASL		; 2
+    577  f202		       0a		      ASL		; 2
+    578  f203		       0a		      ASL		; 2
+    579  f204		       0a		      ASL		; 2
+    580  f205
+    581  f205		       95 20		      STA	HMP1-1,x	; fine movement	     ; 4
+    582  f207		       85 02		      STA	WSYNC	; 3
+    583  f209
+    584  f209		       20 1a f2 	      JSR	Ret1	; just a 12 cycle delay     ; 12
+    585  f20c		       24 00		      BIT	0	; 15 cycles = 3 loops :)    ; 3
+    586  f20e
+    587  f20e
+    588  f20e				   Jiggle1
+    589  f20e		       88		      DEY		; 2
+    590  f20f		       10 fd		      BPL	Jiggle1	; 3
+    591  f211
+    592  f211		       95 10		      STA	RESP1-1,x	; 4
+    593  f213
+    594  f213		       ca		      DEX		; 2
+    595  f214		       d0 d1		      BNE	PosSP1	; 3
+    596  f216
+    597  f216		       85 02		      STA	WSYNC	; 3
+    598  f218		       85 2a		      STA	HMOVE	; 3
+    599  f21a
+    600  f21a				   Ret1
+    601  f21a		       60		      RTS		; 6
+    602  f21b
+    603  f21b							;==================================================================================
+    604  f21b							; PositionWaferX0 - Subroutine to position wafer missile
+    605  f21b							;==================================================================================
+    606  f21b
+    607  f21b				   PositionWaferX0
+    608  f21b		       85 02		      STA	WSYNC	; 3
+    609  f21d		       85 2b		      STA	HMCLR	; clear any previous movement	  ; 3
+    610  f21f
+    611  f21f				   PosSPWafer0
+    612  f21f
+    613  f21f		       a5 8c		      LDA	CurWaferXPos0	; 4
+    614  f221		       a8		      TAY		; 2
+    615  f222
+    616  f222							; Divide by 16
+    617  f222		       4a		      LSR		; 2
+    618  f223		       4a		      LSR		; 2
+    619  f224		       4a		      LSR		; 2
+    620  f225		       4a		      LSR		; 2
+    621  f226		       85 80		      STA	PS_temp	; 3
+    622  f228
+    623  f228		       98		      TYA		; 2
+    624  f229		       29 0f		      AND	#15	; 2
+    625  f22b
+    626  f22b		       18		      CLC		; 2
+    627  f22c
+    628  f22c		       65 80		      ADC	PS_temp	; 3
+    629  f22e		       a4 80		      LDY	PS_temp	; 3
+    630  f230
+    631  f230		       c9 0f		      CMP	#15	; 2
+    632  f232		       90 03		      BCC	NHWafer0	; 3
+    633  f234		       e9 0f		      SBC	#15	; 2
+    634  f236		       c8		      INY		; 2
+    635  f237
+    636  f237				   NHWafer0
+    637  f237							; Use remainder for fine adjustment
+    638  f237		       49 07		      EOR	#7	; 2
+    639  f239		       0a		      ASL		; 2
+    640  f23a		       0a		      ASL		; 2
+    641  f23b		       0a		      ASL		; 2
+    642  f23c		       0a		      ASL		; 2
+    643  f23d
+    644  f23d		       85 22		      STA	HMM0	; fine movement	     ; 4
+    645  f23f		       85 02		      STA	WSYNC	; 3
+    646  f241
+    647  f241		       20 4f f2 	      JSR	RetWafer0	; just a 12 cycle delay     ; 12
+    648  f244		       24 00		      BIT	0	; 15 cycles = 3 loops :)    ; 3
+    649  f246
+    650  f246
+    651  f246				   JiggleWafer0
+    652  f246		       88		      DEY		; 2
+    653  f247		       10 fd		      BPL	JiggleWafer0	; 3
     654  f249
-    655  f249				   UpdateWaferIndex
-    656  f249		       e6 8d		      INC	WaferXPosIndex
-    657  f24b
-    658  f24b		       a6 8d		      LDX	WaferXPosIndex
-    659  f24d		       e0 06		      CPX	#6
-    660  f24f		       d0 04		      BNE	ReturnWaferIndex
-    661  f251
-    662  f251				   WaferIndexEquals6
-    663  f251		       a2 00		      LDX	#0
-    664  f253		       86 8d		      STX	WaferXPosIndex
-    665  f255
-    666  f255				   ReturnWaferIndex
-    667  f255		       bd 20 f4 	      LDA	WaferXPosArray0,x
-    668  f258		       85 8c		      STA	CurWaferXPos0
-    669  f25a		       60		      RTS
-    670  f25b
-    671  f25b							;==================================================================================
-    672  f25b							; CheckPlayerCollision - Verify for Player Collision with PF and Update Velocity Mask
-    673  f25b							;==================================================================================
-    674  f25b
-    675  f25b				   CheckPlayerCollision
-    676  f25b							; Verify P0PF Collision Bit
-    677  f25b		       a5 02		      LDA	CXP0FB
-    678  f25d		       29 80		      AND	#%10000000
-    679  f25f		       f0 4e		      BEQ	PlayerPFCollisionNotDetected
-    680  f261
-    681  f261							; Check Where Player Was Going
-    682  f261		       a6 87		      LDX	PlayerVelocityMask
-    683  f263
-    684  f263							; Return Player to Previous Spot Before Zeoring Velocity
-    685  f263		       8a		      TXA
-    686  f264		       29 08		      AND	#%1000
-    687  f266		       d0 1a		      BNE	WasGoingRight
-    688  f268
-    689  f268		       8a		      TXA
-    690  f269		       29 04		      AND	#%0100
-    691  f26b		       d0 20		      BNE	WasGoingLeft
-    692  f26d
-    693  f26d		       8a		      TXA
-    694  f26e		       29 02		      AND	#%0010
-    695  f270		       d0 26		      BNE	WasGoingDown
-    696  f272
-    697  f272		       8a		      TXA
-    698  f273		       29 01		      AND	#%0001
-    699  f275		       d0 2c		      BNE	WasGoingUp
-    700  f277
-    701  f277							; Return X and Y in case Player isnt moving and is still stuck
-    702  f277		       a5 85		      LDA	LastSpriteXPos
-    703  f279		       85 83		      STA	SpriteXPos
-    704  f27b		       a5 86		      LDA	LastSpriteYPos
-    705  f27d		       85 84		      STA	SpriteYPos
-    706  f27f
-    707  f27f		       4c ab f2 	      JMP	ZeroPlayerVelocity
-    708  f282
-    709  f282				   WasGoingRight
-    710  f282		       a5 85		      LDA	LastSpriteXPos
-    711  f284		       85 83		      STA	SpriteXPos
-    712  f286
-    713  f286		       c6 83		      DEC	SpriteXPos
-    714  f288		       c6 83		      DEC	SpriteXPos
-    715  f28a
-    716  f28a		       4c ab f2 	      JMP	ZeroPlayerVelocity
-    717  f28d
-    718  f28d				   WasGoingLeft
-    719  f28d		       a5 85		      LDA	LastSpriteXPos
-    720  f28f		       85 83		      STA	SpriteXPos
-    721  f291
-    722  f291		       e6 83		      INC	SpriteXPos
-    723  f293		       e6 83		      INC	SpriteXPos
-    724  f295
-    725  f295		       4c ab f2 	      JMP	ZeroPlayerVelocity
-    726  f298
-    727  f298				   WasGoingDown
-    728  f298		       a5 86		      LDA	LastSpriteYPos
-    729  f29a		       85 84		      STA	SpriteYPos
-    730  f29c
-    731  f29c		       e6 84		      INC	SpriteYPos
-    732  f29e		       e6 84		      INC	SpriteYPos
-    733  f2a0
-    734  f2a0		       4c ab f2 	      JMP	ZeroPlayerVelocity
-    735  f2a3
-    736  f2a3				   WasGoingUp
-    737  f2a3		       a5 86		      LDA	LastSpriteYPos
-    738  f2a5		       85 84		      STA	SpriteYPos
-    739  f2a7
-    740  f2a7		       c6 84		      DEC	SpriteYPos
-    741  f2a9		       c6 84		      DEC	SpriteYPos
-    742  f2ab
-    743  f2ab				   ZeroPlayerVelocity
-    744  f2ab		       a9 00		      LDA	#0
-    745  f2ad		       85 87		      STA	PlayerVelocityMask
-    746  f2af
-    747  f2af				   PlayerPFCollisionNotDetected
-    748  f2af		       60		      RTS
-    749  f2b0
-    750  f2b0							;==================================================================================
-    751  f2b0							; UpdatePlayerPosition - Update Player Position According to Velocity Mask
-    752  f2b0							;==================================================================================
-    753  f2b0
-    754  f2b0				   UpdatePlayerPosition
-    755  f2b0							; Verify Collision and Refuse to Move in case is colliding
-    756  f2b0		       a5 02		      LDA	CXP0FB
-    757  f2b2		       29 80		      AND	#%10000000
-    758  f2b4		       d0 5e		      BNE	UpdatePlayerPositionRet
-    759  f2b6
-    760  f2b6		       a6 87		      LDX	PlayerVelocityMask
-    761  f2b8
-    762  f2b8		       8a		      TXA
-    763  f2b9		       29 08		      AND	#%1000
-    764  f2bb		       d0 12		      BNE	GoRight
-    765  f2bd
-    766  f2bd		       8a		      TXA
-    767  f2be		       29 04		      AND	#%0100
-    768  f2c0		       d0 24		      BNE	GoLeft
-    769  f2c2
-    770  f2c2		       8a		      TXA
-    771  f2c3		       29 02		      AND	#%0010
-    772  f2c5		       d0 36		      BNE	GoDown
-    773  f2c7
-    774  f2c7		       8a		      TXA
-    775  f2c8		       29 01		      AND	#%0001
-    776  f2ca		       d0 3e		      BNE	GoUp
-    777  f2cc
-    778  f2cc		       4c 14 f3 	      JMP	UpdatePlayerPositionRet
-    779  f2cf
-    780  f2cf				   GoRight
-    781  f2cf		       a5 83		      LDA	SpriteXPos
-    782  f2d1		       85 85		      STA	LastSpriteXPos
-    783  f2d3		       a5 84		      LDA	SpriteYPos
-    784  f2d5		       85 86		      STA	LastSpriteYPos
-    785  f2d7
-    786  f2d7		       e6 83		      INC	SpriteXPos
-    787  f2d9
-    788  f2d9							; Verify If Sprite is in Far Right
-    789  f2d9		       a5 83		      LDA	SpriteXPos
-    790  f2db		       c9 a0		      CMP	#160
-    791  f2dd		       90 04		      BCC	NotFarRight
-    792  f2df
-    793  f2df		       a9 00		      LDA	#0
-    794  f2e1		       85 83		      STA	SpriteXPos
-    795  f2e3
-    796  f2e3				   NotFarRight
-    797  f2e3		       4c 14 f3 	      JMP	UpdatePlayerPositionRet
-    798  f2e6
-    799  f2e6				   GoLeft
-    800  f2e6		       a5 83		      LDA	SpriteXPos
-    801  f2e8		       85 85		      STA	LastSpriteXPos
-    802  f2ea		       a5 84		      LDA	SpriteYPos
-    803  f2ec		       85 86		      STA	LastSpriteYPos
-    804  f2ee
-    805  f2ee		       c6 83		      DEC	SpriteXPos
-    806  f2f0
-    807  f2f0							; Verify If Sprite is in Far Left
-    808  f2f0		       a5 83		      LDA	SpriteXPos
-    809  f2f2		       c9 00		      CMP	#0
-    810  f2f4		       d0 04		      BNE	NotFarLeft
-    811  f2f6
-    812  f2f6		       a9 a0		      LDA	#160
-    813  f2f8		       85 83		      STA	SpriteXPos
-    814  f2fa
-    815  f2fa				   NotFarLeft
-    816  f2fa		       4c 14 f3 	      JMP	UpdatePlayerPositionRet
-    817  f2fd
-    818  f2fd				   GoDown
-    819  f2fd		       a5 83		      LDA	SpriteXPos
-    820  f2ff		       85 85		      STA	LastSpriteXPos
-    821  f301		       a5 84		      LDA	SpriteYPos
-    822  f303		       85 86		      STA	LastSpriteYPos
-    823  f305
-    824  f305		       c6 84		      DEC	SpriteYPos
-    825  f307		       4c 14 f3 	      JMP	UpdatePlayerPositionRet
-    826  f30a
-    827  f30a				   GoUp
-    828  f30a		       a5 83		      LDA	SpriteXPos
-    829  f30c		       85 85		      STA	LastSpriteXPos
-    830  f30e		       a5 84		      LDA	SpriteYPos
-    831  f310		       85 86		      STA	LastSpriteYPos
-    832  f312
-    833  f312		       e6 84		      INC	SpriteYPos
-    834  f314
-    835  f314				   UpdatePlayerPositionRet
-    836  f314		       60		      RTS
-    837  f315
-    838  f315							;==================================================================================
-    839  f315							; ChangeAnimationFrame
-    840  f315							;==================================================================================
-    841  f315
-    842  f315				   ChangeAnimationFrame
-    843  f315							; Verify Counter
-    844  f315		       a5 a0		      LDA	TimerCounter
-    845  f317		       d0 1e		      BNE	DontChangeFrame
-    846  f319
-    847  f319							; Load Current Frame Index
-    848  f319		       a4 95		      LDY	SpriteAnimationIndex
-    849  f31b
-    850  f31b							; Verify Next Frame
-    851  f31b		       a6 96		      LDX	IsFrameGoingUp
-    852  f31d		       f0 04		      BEQ	FrameIsGoingUp
-    853  f31f
-    854  f31f				   FrameIsGoingDown
-    855  f31f		       88		      DEY
-    856  f320		       4c 24 f3 	      JMP	FrameChanged
-    857  f323
-    858  f323				   FrameIsGoingUp
-    859  f323		       c8		      INY
-    860  f324
-    861  f324				   FrameChanged
-    862  f324							; Check if Index is Either 0 or 2
-    863  f324		       84 95		      STY	SpriteAnimationIndex
-    864  f326		       c0 03		      CPY	#3
-    865  f328		       f0 07		      BEQ	ChangeDirection
-    866  f32a		       c0 00		      CPY	#0
-    867  f32c		       f0 03		      BEQ	ChangeDirection
-    868  f32e
-    869  f32e							; If not
-    870  f32e		       4c 37 f3 	      JMP	FrameChangeReturn
-    871  f331
-    872  f331				   ChangeDirection
-    873  f331		       a5 96		      LDA	IsFrameGoingUp
-    874  f333		       49 01		      EOR	#1
-    875  f335		       85 96		      STA	IsFrameGoingUp
-    876  f337
-    877  f337				   DontRestartFrame
-    878  f337				   DontChangeFrame
-    879  f337				   FrameChangeReturn
-    880  f337		       60		      RTS
-    881  f338
-    882  f338							;==================================================================================
-    883  f338							; ApplyAnimationFrame
-    884  f338							;==================================================================================
-    885  f338
-    886  f338				   ApplyAnimationFrame
-    887  f338							; Check Counter
-    888  f338		       a5 a0		      LDA	TimerCounter
-    889  f33a		       d0 39		      BNE	ApplyAnimationFrameRet
-    890  f33c
-    891  f33c		       a5 95		      LDA	SpriteAnimationIndex
-    892  f33e		       f0 0c		      BEQ	Animation0
-    893  f340		       c9 01		      CMP	#1
-    894  f342		       f0 13		      BEQ	Animation1
-    895  f344		       c9 02		      CMP	#2
-    896  f346		       f0 1a		      BEQ	Animation2
-    897  f348		       c9 03		      CMP	#3
-    898  f34a		       f0 21		      BEQ	Animation3
-    899  f34c
-    900  f34c				   Animation0
-    901  f34c		       a9 00		      LDA	#<Sprite0Data
-    902  f34e		       85 81		      STA	SpriteAddrPtr
-    903  f350		       a9 f6		      LDA	#>Sprite0Data
-    904  f352		       85 82		      STA	SpriteAddrPtr+1
-    905  f354		       4c 75 f3 	      JMP	ApplyAnimationFrameRet
-    906  f357
-    907  f357				   Animation1
-    908  f357		       a9 12		      LDA	#<Sprite1Data
-    909  f359		       85 81		      STA	SpriteAddrPtr
-    910  f35b		       a9 f6		      LDA	#>Sprite1Data
-    911  f35d		       85 82		      STA	SpriteAddrPtr+1
-    912  f35f		       4c 75 f3 	      JMP	ApplyAnimationFrameRet
-    913  f362
-    914  f362				   Animation2
-    915  f362		       a9 24		      LDA	#<Sprite2Data
-    916  f364		       85 81		      STA	SpriteAddrPtr
-    917  f366		       a9 f6		      LDA	#>Sprite2Data
-    918  f368		       85 82		      STA	SpriteAddrPtr+1
-    919  f36a		       4c 75 f3 	      JMP	ApplyAnimationFrameRet
-    920  f36d
-    921  f36d				   Animation3
-    922  f36d		       a9 36		      LDA	#<Sprite3Data
-    923  f36f		       85 81		      STA	SpriteAddrPtr
-    924  f371		       a9 f6		      LDA	#>Sprite3Data
-    925  f373		       85 82		      STA	SpriteAddrPtr+1
-    926  f375
-    927  f375				   ApplyAnimationFrameRet
-    928  f375		       60		      RTS
-    929  f376
-    930  f376							;==================================================================================
-    931  f376							; GetControllerInputs - Update Player Velocity Mask According to Inputs
-    932  f376							;==================================================================================
-    933  f376
-    934  f376				   GetControllerInputs
-    935  f376		       ae 80 02 	      LDX	SWCHA
-    936  f379
-    937  f379							; Check Right Input
-    938  f379		       8a		      TXA
-    939  f37a		       29 80		      AND	#%10000000
-    940  f37c		       f0 12		      BEQ	RightInput
-    941  f37e
-    942  f37e							; Check Left Input
-    943  f37e		       8a		      TXA
-    944  f37f		       29 40		      AND	#%01000000
-    945  f381		       f0 18		      BEQ	LeftInput
-    946  f383
-    947  f383							; Check Down Input
-    948  f383		       8a		      TXA
-    949  f384		       29 20		      AND	#%00100000
-    950  f386		       f0 20		      BEQ	DownInput
-    951  f388
-    952  f388							; Check Up Input
-    953  f388		       8a		      TXA
-    954  f389		       29 10		      AND	#%00010000
-    955  f38b		       f0 22		      BEQ	UpInput
-    956  f38d
-    957  f38d							; No Input Detected
-    958  f38d		       4c b3 f3 	      JMP	ControllerRet
-    959  f390
-    960  f390				   RightInput
-    961  f390		       a9 08		      LDA	#%1000
-    962  f392		       85 0b		      STA	REFP0
-    963  f394		       85 a1		      STA	PlayerReflectedBuffer
-    964  f396
-    965  f396		       85 87		      STA	PlayerVelocityMask
-    966  f398		       4c b3 f3 	      JMP	ControllerRet
-    967  f39b
-    968  f39b				   LeftInput
-    969  f39b		       a9 00		      LDA	#0
-    970  f39d		       85 0b		      STA	REFP0
-    971  f39f		       85 a1		      STA	PlayerReflectedBuffer
-    972  f3a1
-    973  f3a1		       a9 04		      LDA	#%0100
-    974  f3a3		       85 87		      STA	PlayerVelocityMask
-    975  f3a5		       4c b3 f3 	      JMP	ControllerRet
-    976  f3a8
-    977  f3a8				   DownInput
-    978  f3a8		       a9 02		      LDA	#%0010
-    979  f3aa		       85 87		      STA	PlayerVelocityMask
-    980  f3ac		       4c b3 f3 	      JMP	ControllerRet
-    981  f3af
-    982  f3af				   UpInput
-    983  f3af		       a9 01		      LDA	#%0001
-    984  f3b1		       85 87		      STA	PlayerVelocityMask
-    985  f3b3
-    986  f3b3				   ControllerRet
-    987  f3b3		       60		      RTS
-    988  f3b4
-    989  f3b4							;==================================================================================
-    990  f3b4							; GetController2Inputs - DEBUG - Controls Ghost
-    991  f3b4							;==================================================================================
-    992  f3b4
-    993  f3b4				   GetController2InputsDEBUG
-    994  f3b4		       ae 80 02 	      LDX	SWCHA
-    995  f3b7
-    996  f3b7							; Check Right Input
-    997  f3b7		       8a		      TXA
-    998  f3b8		       29 08		      AND	#%00001000
-    999  f3ba		       f0 12		      BEQ	RightInputGhost
-   1000  f3bc
-   1001  f3bc							; Check Left Input
-   1002  f3bc		       8a		      TXA
-   1003  f3bd		       29 04		      AND	#%00000100
-   1004  f3bf		       f0 18		      BEQ	LeftInputGhost
-   1005  f3c1
-   1006  f3c1							; Check Down Input
-   1007  f3c1		       8a		      TXA
-   1008  f3c2		       29 02		      AND	#%00000010
-   1009  f3c4		       f0 1e		      BEQ	DownInputGhost
-   1010  f3c6
-   1011  f3c6							; Check Up Input
-   1012  f3c6		       8a		      TXA
-   1013  f3c7		       29 01		      AND	#%00000001
-   1014  f3c9		       f0 1e		      BEQ	UpInputGhost
-   1015  f3cb
-   1016  f3cb							; No Input Detected
-   1017  f3cb		       4c eb f3 	      JMP	ControllerRetGhost
-   1018  f3ce
-   1019  f3ce				   RightInputGhost
-   1020  f3ce		       e6 8a		      INC	GhostSpriteXPos
-   1021  f3d0		       a9 08		      LDA	#%1000
-   1022  f3d2		       85 0c		      STA	REFP1
-   1023  f3d4		       85 a2		      STA	GhostReflectedBuffer
-   1024  f3d6		       4c eb f3 	      JMP	ControllerRetGhost
-   1025  f3d9
-   1026  f3d9				   LeftInputGhost
-   1027  f3d9		       c6 8a		      DEC	GhostSpriteXPos
-   1028  f3db		       a9 00		      LDA	#0
-   1029  f3dd		       85 0c		      STA	REFP1
-   1030  f3df		       85 a2		      STA	GhostReflectedBuffer
-   1031  f3e1		       4c eb f3 	      JMP	ControllerRetGhost
-   1032  f3e4
-   1033  f3e4				   DownInputGhost
-   1034  f3e4		       c6 8b		      DEC	GhostSpriteYPos
-   1035  f3e6		       4c eb f3 	      JMP	ControllerRetGhost
-   1036  f3e9
-   1037  f3e9				   UpInputGhost
-   1038  f3e9		       e6 8b		      INC	GhostSpriteYPos
-   1039  f3eb
-   1040  f3eb				   ControllerRetGhost
-   1041  f3eb		       60		      RTS
-   1042  f3ec
-   1043  f3ec							;==================================================================================
-   1044  f3ec							; UpdateTimer
-   1045  f3ec							;==================================================================================
-   1046  f3ec
-   1047  f3ec				   UpdateTimer
-   1048  f3ec		       a5 a0		      LDA	TimerCounter
-   1049  f3ee		       c9 00		      CMP	#0
-   1050  f3f0		       d0 07		      BNE	DidntReachLimit
-   1051  f3f2
-   1052  f3f2				   ReachedLimit
-   1053  f3f2		       a9 05		      LDA	#TIMER_LIMIT
-   1054  f3f4		       85 a0		      STA	TimerCounter
-   1055  f3f6		       4c fb f3 	      JMP	TimerRet
-   1056  f3f9
-   1057  f3f9				   DidntReachLimit
-   1058  f3f9		       c6 a0		      DEC	TimerCounter
-   1059  f3fb
-   1060  f3fb				   TimerRet
-   1061  f3fb		       60		      RTS
-   1062  f3fc
-   1063  f3fc							;==================================================================================
-   1064  f3fc							; UpdateScore
-   1065  f3fc							;==================================================================================
-   1066  f3fc
-   1067  f3fc				   UpdateScore
-   1068  f3fc							; Check If Wafer Was Picked Up
-   1069  f3fc		       a5 94		      LDA	PickedUpWaferBuffer
-   1070  f3fe		       c9 00		      CMP	#0
-   1071  f400		       f0 18		      BEQ	DidntPickUpWafer
-   1072  f402
-   1073  f402							; Increase Ones
-   1074  f402		       e6 99		      INC	ScoreOnes
-   1075  f404
-   1076  f404							; Check if Ones reached 10
-   1077  f404		       a6 99		      LDX	ScoreOnes
-   1078  f406		       e0 0a		      CPX	#10
-   1079  f408		       d0 10		      BNE	NotYet10
-   1080  f40a
-   1081  f40a				   OnesReached10
-   1082  f40a							; Reset Ones and Increase Tens
-   1083  f40a		       a2 00		      LDX	#0
-   1084  f40c		       86 99		      STX	ScoreOnes
-   1085  f40e		       e6 98		      INC	ScoreTens
-   1086  f410
-   1087  f410							; Check if Tens reached 10
-   1088  f410		       a6 98		      LDX	ScoreTens
-   1089  f412		       e0 0a		      CPX	#10
-   1090  f414		       d0 04		      BNE	NotYet10
-   1091  f416
-   1092  f416				   TensReached10
-   1093  f416							; Reset Tens
-   1094  f416		       a2 00		      LDX	#0
-   1095  f418		       86 98		      STX	ScoreTens
-   1096  f41a
-   1097  f41a				   DidntPickUpWafer
-   1098  f41a				   NotYet10
-   1099  f41a							; Flush PickedUpWaferBuffer
-   1100  f41a		       a9 00		      LDA	#0
-   1101  f41c		       85 94		      STA	PickedUpWaferBuffer
-   1102  f41e
-   1103  f41e		       60		      RTS
-   1104  f41f
-   1105  f41f							;==================================================================================
-   1106  f41f							; Delay12 - Waste 12 cycles of CPU
-   1107  f41f							;==================================================================================
-   1108  f41f
-   1109  f41f				   Delay12
-   1110  f41f		       60		      RTS
-   1111  f420
-   1112  f420							;==================================================================================
-   1113  f420							; WaferXPosArray0
-   1114  f420							;==================================================================================
-   1115  f420
-   1116  f420				   WaferXPosArray0
-   1117  f420		       19 23 3c 64*	      .byte.b	25,35,60,100,130,140
-   1118  f426
-   1119  f426							;==================================================================================
-   1120  f426							; FindWaferLookUp - Look up table for finding wafer in memory
-   1121  f426							;==================================================================================
-   1122  f426
-   1123  f426				   FindWaferLookUp
-   1124  f426		       00 02 04 08*	      .byte.b	0,%00000010,%00000100,%00001000,%00010000,%00100000,%01000000,%10000000
-   1125  f42e
-   1126  f42e							;==================================================================================
-   1127  f42e							; MultBy14
-   1128  f42e							;==================================================================================
-   1129  f42e
-   1130  f42e				   MultBy14
-   1131  f42e		       00 0e 1c 2a*	      .byte.b	0,14,28,42,56,70,84,98,112,126,140
-   1132  f439
-   1133  f439							;==================================================================================
-   1134  f439							; CheckLineBytes
-   1135  f439							;==================================================================================
-   1136  f439
-   1137  f439				   CheckLineBytes
-   1138  f439		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1139  f444		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,7,7,0,0
-   1140  f44f		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1141  f45a		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1142  f465		       06 06 00 00*	      .byte.b	6,6,0,0,0,0,0,0,0,0,0
-   1143  f470		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1144  f47b		       00 00 00 00*	      .byte.b	0,0,0,0,5,5,0,0,0,0,0
-   1145  f486		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1146  f491		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,4,4,0,0,0
-   1147  f49c		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1148  f4a7		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,3,3,0
-   1149  f4b2		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1150  f4bd		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,2
-   1151  f4c8		       02 00 00 00*	      .byte.b	2,0,0,0,0,0,0,0,0,0,0
-   1152  f4d3		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1153  f4de		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,1,1
-   1154  f4e9		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1155  f4f4		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1156  f4ff		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1157  f50a		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
-   1158  f515
-   1159  f515							;==================================================================================
-   1160  f515							; Control Page Boundry
-   1161  f515							;==================================================================================
-   1162  f515
-   1163  f515
-   1164  f515							;===============================================================================
-   1165  f515							; free space check before page boundry
-   1166  f515							;===============================================================================
-   1167  f515
- Start of Sprite0Data is:  $f515
-   1168  f515					      echo	"Start of Sprite0Data is: ", *
-   1169  f600		       00 00 00 00*	      align	256
-   1170  f600
-   1171  f600							;==================================================================================
-   1172  f600							; Sprite Data - Pacman
-   1173  f600							;==================================================================================
-   1174  f600
-   1175  f600				   Sprite0Data
-   1176  f600							; Frame 0
-   1177  f600		       00		      .byte.b	#%00000000
-   1178  f601		       00		      .byte.b	#%00000000
-   1179  f602		       7e		      .byte.b	#%01111110
-   1180  f603		       7e		      .byte.b	#%01111110
-   1181  f604		       3f		      .byte.b	#%00111111
-   1182  f605		       3f		      .byte.b	#%00111111
-   1183  f606		       0f		      .byte.b	#%00001111
-   1184  f607		       0f		      .byte.b	#%00001111
-   1185  f608		       07		      .byte.b	#%00000111
-   1186  f609		       07		      .byte.b	#%00000111
-   1187  f60a		       0f		      .byte.b	#%00001111
-   1188  f60b		       0f		      .byte.b	#%00001111
-   1189  f60c		       3f		      .byte.b	#%00111111
-   1190  f60d		       3f		      .byte.b	#%00111111
-   1191  f60e		       7e		      .byte.b	#%01111110
-   1192  f60f		       7e		      .byte.b	#%01111110
-   1193  f610		       00		      .byte.b	#%00000000
-   1194  f611		       00		      .byte.b	#%00000000
-   1195  f612
-   1196  f612				   Sprite1Data
-   1197  f612							; Frame 0
-   1198  f612		       00		      .byte.b	#%00000000
-   1199  f613		       00		      .byte.b	#%00000000
-   1200  f614		       7e		      .byte.b	#%01111110
-   1201  f615		       7e		      .byte.b	#%01111110
-   1202  f616		       ff		      .byte.b	#%11111111
-   1203  f617		       ff		      .byte.b	#%11111111
-   1204  f618		       3f		      .byte.b	#%00111111
-   1205  f619		       3f		      .byte.b	#%00111111
-   1206  f61a		       0f		      .byte.b	#%00001111
-   1207  f61b		       0f		      .byte.b	#%00001111
-   1208  f61c		       3f		      .byte.b	#%00111111
-   1209  f61d		       3f		      .byte.b	#%00111111
-   1210  f61e		       ff		      .byte.b	#%11111111
-   1211  f61f		       ff		      .byte.b	#%11111111
-   1212  f620		       7e		      .byte.b	#%01111110
-   1213  f621		       7e		      .byte.b	#%01111110
-   1214  f622		       00		      .byte.b	#%00000000
-   1215  f623		       00		      .byte.b	#%00000000
-   1216  f624
-   1217  f624				   Sprite2Data
-   1218  f624							; Frame 1
-   1219  f624		       00		      .byte.b	#%00000000
-   1220  f625		       00		      .byte.b	#%00000000
-   1221  f626		       7e		      .byte.b	#%01111110
-   1222  f627		       7e		      .byte.b	#%01111110
-   1223  f628		       ff		      .byte.b	#%11111111
-   1224  f629		       ff		      .byte.b	#%11111111
-   1225  f62a		       ff		      .byte.b	#%11111111
-   1226  f62b		       ff		      .byte.b	#%11111111
-   1227  f62c		       0f		      .byte.b	#%00001111
-   1228  f62d		       0f		      .byte.b	#%00001111
-   1229  f62e		       ff		      .byte.b	#%11111111
-   1230  f62f		       ff		      .byte.b	#%11111111
-   1231  f630		       ff		      .byte.b	#%11111111
-   1232  f631		       ff		      .byte.b	#%11111111
-   1233  f632		       7e		      .byte.b	#%01111110
-   1234  f633		       7e		      .byte.b	#%01111110
-   1235  f634		       00		      .byte.b	#%00000000
-   1236  f635		       00		      .byte.b	#%00000000
-   1237  f636
-   1238  f636				   Sprite3Data
-   1239  f636							; Frame 2
-   1240  f636		       00		      .byte.b	#%00000000
-   1241  f637		       00		      .byte.b	#%00000000
-   1242  f638		       7e		      .byte.b	#%01111110
-   1243  f639		       7e		      .byte.b	#%01111110
-   1244  f63a		       ff		      .byte.b	#%11111111
-   1245  f63b		       ff		      .byte.b	#%11111111
-   1246  f63c		       ff		      .byte.b	#%11111111
-   1247  f63d		       ff		      .byte.b	#%11111111
-   1248  f63e		       ff		      .byte.b	#%11111111
-   1249  f63f		       ff		      .byte.b	#%11111111
-   1250  f640		       ff		      .byte.b	#%11111111
-   1251  f641		       ff		      .byte.b	#%11111111
-   1252  f642		       ff		      .byte.b	#%11111111
-   1253  f643		       ff		      .byte.b	#%11111111
-   1254  f644		       7e		      .byte.b	#%01111110
-   1255  f645		       7e		      .byte.b	#%01111110
-   1256  f646		       00		      .byte.b	#%00000000
-   1257  f647		       00		      .byte.b	#%00000000
-   1258  f648
-   1259  f648							;==================================================================================
-   1260  f648							; Sprite Data - Ghost
-   1261  f648							;==================================================================================
-   1262  f648
-   1263  f648				   SpriteGhostData
-   1264  f648		       00		      .byte.b	#%00000000
-   1265  f649		       00		      .byte.b	#%00000000
-   1266  f64a		       55		      .byte.b	#%01010101
-   1267  f64b		       55		      .byte.b	#%01010101
-   1268  f64c		       ff		      .byte.b	#%11111111
-   1269  f64d		       ff		      .byte.b	#%11111111
-   1270  f64e		       ff		      .byte.b	#%11111111
-   1271  f64f		       99		      .byte.b	#%10011001
-   1272  f650		       99		      .byte.b	#%10011001
-   1273  f651		       bb		      .byte.b	#%10111011
-   1274  f652		       bb		      .byte.b	#%10111011
-   1275  f653		       ff		      .byte.b	#%11111111
-   1276  f654		       7e		      .byte.b	#%01111110
-   1277  f655		       7e		      .byte.b	#%01111110
-   1278  f656		       7e		      .byte.b	#%01111110
-   1279  f657		       7e		      .byte.b	#%01111110
-   1280  f658		       00		      .byte.b	#%00000000
-   1281  f659		       00		      .byte.b	#%00000000
-   1282  f65a
-   1283  f65a							;==================================================================================
-   1284  f65a							; free space check before page boundry
-   1285  f65a							;==================================================================================
-   1286  f65a
- End of Sprite0Data is:  $f65a
-   1287  f65a					      echo	"End of Sprite0Data is: ", *
-   1288  f700		       00 00 00 00*	      align	256
-   1289  f700
-   1290  f700							;==================================================================================
-   1291  f700							; Board Data
-   1292  f700							;==================================================================================
-   1293  f700
+    655  f249		       85 12		      STA	RESM0	; 4
+    656  f24b
+    657  f24b		       85 02		      STA	WSYNC	; 3
+    658  f24d		       85 2a		      STA	HMOVE	; 3
+    659  f24f
+    660  f24f				   RetWafer0
+    661  f24f		       60		      RTS		; 6
+    662  f250
+    663  f250							;==================================================================================
+    664  f250							; UpdateEntities - Update Game Logic
+    665  f250							;==================================================================================
+    666  f250
+    667  f250				   UpdateEntities
+    668  f250							; Check Player Collision with PF
+    669  f250		       20 94 f2 	      JSR	CheckPlayerCollisionPF
+    670  f253
+    671  f253							; Update Sprite Pos According to Velocity Mask
+    672  f253		       20 e9 f2 	      JSR	UpdatePlayerPosition
+    673  f256
+    674  f256							; Check Player Collision with Ghosts
+    675  f256		       20 7d f2 	      JSR	CheckPlayerCollisionGhosts
+    676  f259
+    677  f259							; Remove Collisions After Checks
+    678  f259		       85 2c		      STA	CXCLR
+    679  f25b
+    680  f25b							; Update Timer
+    681  f25b		       20 b3 f4 	      JSR	UpdateTimer
+    682  f25e
+    683  f25e							; Increase Score According with Picked Up Wafer Buffer
+    684  f25e		       20 d2 f4 	      JSR	UpdateScore
+    685  f261
+    686  f261							; Change Animation Frame
+    687  f261		       20 4e f3 	      JSR	ChangeAnimationFrame
+    688  f264
+    689  f264							; Apply Animation Frame
+    690  f264		       20 9e f3 	      JSR	ApplyAnimationFrame
+    691  f267
+    692  f267							; Update Wafer XPos Index
+    693  f267		       20 6b f2 	      JSR	UpdateWaferIndex
+    694  f26a
+    695  f26a		       60		      RTS
+    696  f26b
+    697  f26b							;==================================================================================
+    698  f26b							; UpdateWaferIndex - increase wafer XPos Index and apply it
+    699  f26b							;==================================================================================
+    700  f26b
+    701  f26b				   UpdateWaferIndex
+    702  f26b		       e6 8d		      INC	WaferXPosIndex
+    703  f26d
+    704  f26d		       a6 8d		      LDX	WaferXPosIndex
+    705  f26f		       e0 06		      CPX	#6
+    706  f271		       d0 04		      BNE	ReturnWaferIndex
+    707  f273
+    708  f273				   WaferIndexEquals6
+    709  f273		       a2 00		      LDX	#0
+    710  f275		       86 8d		      STX	WaferXPosIndex
+    711  f277
+    712  f277				   ReturnWaferIndex
+    713  f277		       bd 02 f5 	      LDA	WaferXPosArray0,x
+    714  f27a		       85 8c		      STA	CurWaferXPos0
+    715  f27c		       60		      RTS
+    716  f27d
+    717  f27d							;==================================================================================
+    718  f27d							; CheckPlayerCollisionGhosts - Verify for Player Collision with Ghosts
+    719  f27d							;==================================================================================
+    720  f27d
+    721  f27d				   CheckPlayerCollisionGhosts
+    722  f27d
+    723  f27d							; Check if death animation is playing
+    724  f27d		       a5 a5		      LDA	IsPlayingDeathAnimation
+    725  f27f		       d0 12		      BNE	NoP0P1Collision
+    726  f281
+    727  f281							; Check Collision
+    728  f281		       a5 07		      LDA	CXPPMM
+    729  f283		       29 80		      AND	#%10000000
+    730  f285		       f0 0c		      BEQ	NoP0P1Collision
+    731  f287
+    732  f287				   P0P1Collision
+    733  f287							; Reset Player Velocity
+    734  f287		       a9 00		      LDA	#0
+    735  f289		       85 87		      STA	PlayerVelocityMask
+    736  f28b
+    737  f28b							; Set Animation Frame to 4 and IsPlayingDeathAnimation
+    738  f28b		       a9 04		      LDA	#4
+    739  f28d		       85 95		      STA	SpriteAnimationIndex
+    740  f28f
+    741  f28f		       a9 01		      LDA	#1
+    742  f291		       85 a5		      STA	IsPlayingDeathAnimation
+    743  f293
+    744  f293				   NoP0P1Collision
+    745  f293		       60		      RTS
+    746  f294
+    747  f294							;==================================================================================
+    748  f294							; CheckPlayerCollisionPF - Verify for Player Collision with PF and Update Velocity Mask
+    749  f294							;==================================================================================
+    750  f294
+    751  f294				   CheckPlayerCollisionPF
+    752  f294							; Verify P0PF Collision Bit
+    753  f294		       a5 02		      LDA	CXP0FB
+    754  f296		       29 80		      AND	#%10000000
+    755  f298		       f0 4e		      BEQ	PlayerPFCollisionNotDetected
+    756  f29a
+    757  f29a							; Check Where Player Was Going
+    758  f29a		       a6 87		      LDX	PlayerVelocityMask
+    759  f29c
+    760  f29c							; Return Player to Previous Spot Before Zeoring Velocity
+    761  f29c		       8a		      TXA
+    762  f29d		       29 08		      AND	#%1000
+    763  f29f		       d0 1a		      BNE	WasGoingRight
+    764  f2a1
+    765  f2a1		       8a		      TXA
+    766  f2a2		       29 04		      AND	#%0100
+    767  f2a4		       d0 20		      BNE	WasGoingLeft
+    768  f2a6
+    769  f2a6		       8a		      TXA
+    770  f2a7		       29 02		      AND	#%0010
+    771  f2a9		       d0 26		      BNE	WasGoingDown
+    772  f2ab
+    773  f2ab		       8a		      TXA
+    774  f2ac		       29 01		      AND	#%0001
+    775  f2ae		       d0 2c		      BNE	WasGoingUp
+    776  f2b0
+    777  f2b0							; Return X and Y in case Player isnt moving and is still stuck
+    778  f2b0		       a5 85		      LDA	LastSpriteXPos
+    779  f2b2		       85 83		      STA	SpriteXPos
+    780  f2b4		       a5 86		      LDA	LastSpriteYPos
+    781  f2b6		       85 84		      STA	SpriteYPos
+    782  f2b8
+    783  f2b8		       4c e4 f2 	      JMP	ZeroPlayerVelocity
+    784  f2bb
+    785  f2bb				   WasGoingRight
+    786  f2bb		       a5 85		      LDA	LastSpriteXPos
+    787  f2bd		       85 83		      STA	SpriteXPos
+    788  f2bf
+    789  f2bf		       c6 83		      DEC	SpriteXPos
+    790  f2c1		       c6 83		      DEC	SpriteXPos
+    791  f2c3
+    792  f2c3		       4c e4 f2 	      JMP	ZeroPlayerVelocity
+    793  f2c6
+    794  f2c6				   WasGoingLeft
+    795  f2c6		       a5 85		      LDA	LastSpriteXPos
+    796  f2c8		       85 83		      STA	SpriteXPos
+    797  f2ca
+    798  f2ca		       e6 83		      INC	SpriteXPos
+    799  f2cc		       e6 83		      INC	SpriteXPos
+    800  f2ce
+    801  f2ce		       4c e4 f2 	      JMP	ZeroPlayerVelocity
+    802  f2d1
+    803  f2d1				   WasGoingDown
+    804  f2d1		       a5 86		      LDA	LastSpriteYPos
+    805  f2d3		       85 84		      STA	SpriteYPos
+    806  f2d5
+    807  f2d5		       e6 84		      INC	SpriteYPos
+    808  f2d7		       e6 84		      INC	SpriteYPos
+    809  f2d9
+    810  f2d9		       4c e4 f2 	      JMP	ZeroPlayerVelocity
+    811  f2dc
+    812  f2dc				   WasGoingUp
+    813  f2dc		       a5 86		      LDA	LastSpriteYPos
+    814  f2de		       85 84		      STA	SpriteYPos
+    815  f2e0
+    816  f2e0		       c6 84		      DEC	SpriteYPos
+    817  f2e2		       c6 84		      DEC	SpriteYPos
+    818  f2e4
+    819  f2e4				   ZeroPlayerVelocity
+    820  f2e4		       a9 00		      LDA	#0
+    821  f2e6		       85 87		      STA	PlayerVelocityMask
+    822  f2e8
+    823  f2e8				   PlayerPFCollisionNotDetected
+    824  f2e8		       60		      RTS
+    825  f2e9
+    826  f2e9							;==================================================================================
+    827  f2e9							; UpdatePlayerPosition - Update Player Position According to Velocity Mask
+    828  f2e9							;==================================================================================
+    829  f2e9
+    830  f2e9				   UpdatePlayerPosition
+    831  f2e9							; Verify Collision and Refuse to Move in case is colliding
+    832  f2e9		       a5 02		      LDA	CXP0FB
+    833  f2eb		       29 80		      AND	#%10000000
+    834  f2ed		       d0 5e		      BNE	UpdatePlayerPositionRet
+    835  f2ef
+    836  f2ef		       a6 87		      LDX	PlayerVelocityMask
+    837  f2f1
+    838  f2f1		       8a		      TXA
+    839  f2f2		       29 08		      AND	#%1000
+    840  f2f4		       d0 12		      BNE	GoRight
+    841  f2f6
+    842  f2f6		       8a		      TXA
+    843  f2f7		       29 04		      AND	#%0100
+    844  f2f9		       d0 24		      BNE	GoLeft
+    845  f2fb
+    846  f2fb		       8a		      TXA
+    847  f2fc		       29 02		      AND	#%0010
+    848  f2fe		       d0 36		      BNE	GoDown
+    849  f300
+    850  f300		       8a		      TXA
+    851  f301		       29 01		      AND	#%0001
+    852  f303		       d0 3e		      BNE	GoUp
+    853  f305
+    854  f305		       4c 4d f3 	      JMP	UpdatePlayerPositionRet
+    855  f308
+    856  f308				   GoRight
+    857  f308		       a5 83		      LDA	SpriteXPos
+    858  f30a		       85 85		      STA	LastSpriteXPos
+    859  f30c		       a5 84		      LDA	SpriteYPos
+    860  f30e		       85 86		      STA	LastSpriteYPos
+    861  f310
+    862  f310		       e6 83		      INC	SpriteXPos
+    863  f312
+    864  f312							; Verify If Sprite is in Far Right
+    865  f312		       a5 83		      LDA	SpriteXPos
+    866  f314		       c9 a0		      CMP	#160
+    867  f316		       90 04		      BCC	NotFarRight
+    868  f318
+    869  f318		       a9 00		      LDA	#0
+    870  f31a		       85 83		      STA	SpriteXPos
+    871  f31c
+    872  f31c				   NotFarRight
+    873  f31c		       4c 4d f3 	      JMP	UpdatePlayerPositionRet
+    874  f31f
+    875  f31f				   GoLeft
+    876  f31f		       a5 83		      LDA	SpriteXPos
+    877  f321		       85 85		      STA	LastSpriteXPos
+    878  f323		       a5 84		      LDA	SpriteYPos
+    879  f325		       85 86		      STA	LastSpriteYPos
+    880  f327
+    881  f327		       c6 83		      DEC	SpriteXPos
+    882  f329
+    883  f329							; Verify If Sprite is in Far Left
+    884  f329		       a5 83		      LDA	SpriteXPos
+    885  f32b		       c9 00		      CMP	#0
+    886  f32d		       d0 04		      BNE	NotFarLeft
+    887  f32f
+    888  f32f		       a9 a0		      LDA	#160
+    889  f331		       85 83		      STA	SpriteXPos
+    890  f333
+    891  f333				   NotFarLeft
+    892  f333		       4c 4d f3 	      JMP	UpdatePlayerPositionRet
+    893  f336
+    894  f336				   GoDown
+    895  f336		       a5 83		      LDA	SpriteXPos
+    896  f338		       85 85		      STA	LastSpriteXPos
+    897  f33a		       a5 84		      LDA	SpriteYPos
+    898  f33c		       85 86		      STA	LastSpriteYPos
+    899  f33e
+    900  f33e		       c6 84		      DEC	SpriteYPos
+    901  f340		       4c 4d f3 	      JMP	UpdatePlayerPositionRet
+    902  f343
+    903  f343				   GoUp
+    904  f343		       a5 83		      LDA	SpriteXPos
+    905  f345		       85 85		      STA	LastSpriteXPos
+    906  f347		       a5 84		      LDA	SpriteYPos
+    907  f349		       85 86		      STA	LastSpriteYPos
+    908  f34b
+    909  f34b		       e6 84		      INC	SpriteYPos
+    910  f34d
+    911  f34d				   UpdatePlayerPositionRet
+    912  f34d		       60		      RTS
+    913  f34e
+    914  f34e							;==================================================================================
+    915  f34e							; ChangeAnimationFrame
+    916  f34e							;==================================================================================
+    917  f34e
+    918  f34e				   ChangeAnimationFrame
+    919  f34e							; Verify If Is Death Animation
+    920  f34e		       a5 a5		      LDA	IsPlayingDeathAnimation
+    921  f350		       d0 25		      BNE	FrameIsDeath
+    922  f352
+    923  f352				   FrameNotDeath
+    924  f352							; Verify TimerCounter5
+    925  f352		       a5 a0		      LDA	TimerCounter5
+    926  f354		       d0 47		      BNE	DontChangeFrame
+    927  f356
+    928  f356							; Load Current Frame Index
+    929  f356		       a4 95		      LDY	SpriteAnimationIndex
+    930  f358
+    931  f358							; Verify Next Frame
+    932  f358		       a6 96		      LDX	IsFrameGoingUp
+    933  f35a		       d0 04		      BNE	FrameIsGoingUp
+    934  f35c
+    935  f35c				   FrameIsGoingDown
+    936  f35c		       88		      DEY
+    937  f35d		       4c 61 f3 	      JMP	FrameChanged
+    938  f360
+    939  f360				   FrameIsGoingUp
+    940  f360		       c8		      INY
+    941  f361
+    942  f361				   FrameChanged
+    943  f361							; Check if Index is Either 0 or 3
+    944  f361		       84 95		      STY	SpriteAnimationIndex
+    945  f363		       c0 03		      CPY	#3
+    946  f365		       f0 07		      BEQ	ChangeDirection
+    947  f367		       c0 00		      CPY	#0
+    948  f369		       f0 03		      BEQ	ChangeDirection
+    949  f36b
+    950  f36b							; If not
+    951  f36b		       4c 9d f3 	      JMP	FrameChangeReturn
+    952  f36e
+    953  f36e				   ChangeDirection
+    954  f36e		       a5 96		      LDA	IsFrameGoingUp
+    955  f370		       49 01		      EOR	#1
+    956  f372		       85 96		      STA	IsFrameGoingUp
+    957  f374		       4c 9d f3 	      JMP	FrameChangeReturn
+    958  f377
+    959  f377				   FrameIsDeath
+    960  f377							; Verify TimerCounter20
+    961  f377		       a5 a1		      LDA	TimerCounter20
+    962  f379		       d0 22		      BNE	DontChangeFrame
+    963  f37b
+    964  f37b				   CheckIfLastDeathFrame
+    965  f37b							; Check if Frame is 9 (Last Death Frame)
+    966  f37b		       a5 95		      LDA	SpriteAnimationIndex
+    967  f37d		       c9 09		      CMP	#9
+    968  f37f		       d0 17		      BNE	ChangeDeathFrame
+    969  f381
+    970  f381							; End Death Animation
+    971  f381		       a9 00		      LDA	#0
+    972  f383		       85 a5		      STA	IsPlayingDeathAnimation
+    973  f385		       85 95		      STA	SpriteAnimationIndex
+    974  f387
+    975  f387		       a9 01		      LDA	#1
+    976  f389		       85 96		      STA	IsFrameGoingUp
+    977  f38b
+    978  f38b							; Reset Player Coordinates
+    979  f38b		       a9 50		      LDA	#80
+    980  f38d		       85 83		      STA	SpriteXPos
+    981  f38f		       a9 6b		      LDA	#107
+    982  f391		       85 84		      STA	SpriteYPos
+    983  f393
+    984  f393							; Take One Life
+    985  f393		       c6 a4		      DEC	LifeCount
+    986  f395
+    987  f395		       4c 9d f3 	      JMP	FrameChangeReturn
+    988  f398
+    989  f398				   ChangeDeathFrame
+    990  f398		       e6 95		      INC	SpriteAnimationIndex
+    991  f39a		       4c 9d f3 	      JMP	FrameChangeReturn
+    992  f39d
+    993  f39d				   DontRestartFrame
+    994  f39d				   DontChangeFrame
+    995  f39d				   FrameChangeReturn
+    996  f39d		       60		      RTS
+    997  f39e
+    998  f39e							;==================================================================================
+    999  f39e							; ApplyAnimationFrame
+   1000  f39e							;==================================================================================
+   1001  f39e
+   1002  f39e				   ApplyAnimationFrame
+   1003  f39e							; Check Counter
+   1004  f39e		       a5 a0		      LDA	TimerCounter5
+   1005  f3a0		       d0 28		      BNE	AnimationFrameRet
+   1006  f3a2
+   1007  f3a2		       a5 95		      LDA	SpriteAnimationIndex
+   1008  f3a4		       f0 27		      BEQ	Animation0
+   1009  f3a6		       c9 01		      CMP	#1
+   1010  f3a8		       f0 2e		      BEQ	Animation1
+   1011  f3aa		       c9 02		      CMP	#2
+   1012  f3ac		       f0 35		      BEQ	Animation2
+   1013  f3ae		       c9 03		      CMP	#3
+   1014  f3b0		       f0 3c		      BEQ	Animation3
+   1015  f3b2		       c9 04		      CMP	#4
+   1016  f3b4		       f0 43		      BEQ	Animation4
+   1017  f3b6		       c9 05		      CMP	#5
+   1018  f3b8		       f0 4a		      BEQ	Animation5
+   1019  f3ba		       c9 06		      CMP	#6
+   1020  f3bc		       f0 51		      BEQ	Animation6
+   1021  f3be		       c9 07		      CMP	#7
+   1022  f3c0		       f0 58		      BEQ	Animation7
+   1023  f3c2		       c9 08		      CMP	#8
+   1024  f3c4		       f0 5f		      BEQ	Animation8
+   1025  f3c6		       c9 09		      CMP	#9
+   1026  f3c8		       f0 66		      BEQ	Animation9
+   1027  f3ca
+   1028  f3ca				   AnimationFrameRet
+   1029  f3ca		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1030  f3cd
+   1031  f3cd				   Animation0
+   1032  f3cd		       a9 00		      LDA	#<Sprite0Data
+   1033  f3cf		       85 81		      STA	SpriteAddrPtr
+   1034  f3d1		       a9 f6		      LDA	#>Sprite0Data
+   1035  f3d3		       85 82		      STA	SpriteAddrPtr+1
+   1036  f3d5		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1037  f3d8
+   1038  f3d8				   Animation1
+   1039  f3d8		       a9 12		      LDA	#<Sprite1Data
+   1040  f3da		       85 81		      STA	SpriteAddrPtr
+   1041  f3dc		       a9 f6		      LDA	#>Sprite1Data
+   1042  f3de		       85 82		      STA	SpriteAddrPtr+1
+   1043  f3e0		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1044  f3e3
+   1045  f3e3				   Animation2
+   1046  f3e3		       a9 24		      LDA	#<Sprite2Data
+   1047  f3e5		       85 81		      STA	SpriteAddrPtr
+   1048  f3e7		       a9 f6		      LDA	#>Sprite2Data
+   1049  f3e9		       85 82		      STA	SpriteAddrPtr+1
+   1050  f3eb		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1051  f3ee
+   1052  f3ee				   Animation3
+   1053  f3ee		       a9 36		      LDA	#<Sprite3Data
+   1054  f3f0		       85 81		      STA	SpriteAddrPtr
+   1055  f3f2		       a9 f6		      LDA	#>Sprite3Data
+   1056  f3f4		       85 82		      STA	SpriteAddrPtr+1
+   1057  f3f6		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1058  f3f9
+   1059  f3f9				   Animation4
+   1060  f3f9		       a9 48		      LDA	#<Sprite4Data
+   1061  f3fb		       85 81		      STA	SpriteAddrPtr
+   1062  f3fd		       a9 f6		      LDA	#>Sprite4Data
+   1063  f3ff		       85 82		      STA	SpriteAddrPtr+1
+   1064  f401		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1065  f404
+   1066  f404				   Animation5
+   1067  f404		       a9 5a		      LDA	#<Sprite5Data
+   1068  f406		       85 81		      STA	SpriteAddrPtr
+   1069  f408		       a9 f6		      LDA	#>Sprite5Data
+   1070  f40a		       85 82		      STA	SpriteAddrPtr+1
+   1071  f40c		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1072  f40f
+   1073  f40f				   Animation6
+   1074  f40f		       a9 6c		      LDA	#<Sprite6Data
+   1075  f411		       85 81		      STA	SpriteAddrPtr
+   1076  f413		       a9 f6		      LDA	#>Sprite6Data
+   1077  f415		       85 82		      STA	SpriteAddrPtr+1
+   1078  f417		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1079  f41a
+   1080  f41a				   Animation7
+   1081  f41a		       a9 7e		      LDA	#<Sprite7Data
+   1082  f41c		       85 81		      STA	SpriteAddrPtr
+   1083  f41e		       a9 f6		      LDA	#>Sprite7Data
+   1084  f420		       85 82		      STA	SpriteAddrPtr+1
+   1085  f422		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1086  f425
+   1087  f425				   Animation8
+   1088  f425		       a9 90		      LDA	#<Sprite8Data
+   1089  f427		       85 81		      STA	SpriteAddrPtr
+   1090  f429		       a9 f6		      LDA	#>Sprite8Data
+   1091  f42b		       85 82		      STA	SpriteAddrPtr+1
+   1092  f42d		       4c 38 f4 	      JMP	ApplyAnimationFrameRet
+   1093  f430
+   1094  f430				   Animation9
+   1095  f430		       a9 a0		      LDA	#<Sprite9Data
+   1096  f432		       85 81		      STA	SpriteAddrPtr
+   1097  f434		       a9 f6		      LDA	#>Sprite9Data
+   1098  f436		       85 82		      STA	SpriteAddrPtr+1
+   1099  f438
+   1100  f438				   ApplyAnimationFrameRet
+   1101  f438		       60		      RTS
+   1102  f439
+   1103  f439							;==================================================================================
+   1104  f439							; GetControllerInputs - Update Player Velocity Mask According to Inputs
+   1105  f439							;==================================================================================
+   1106  f439
+   1107  f439				   GetControllerInputs
+   1108  f439		       a5 a5		      LDA	IsPlayingDeathAnimation
+   1109  f43b		       d0 3d		      BNE	ControllerRet
+   1110  f43d
+   1111  f43d		       ae 80 02 	      LDX	SWCHA
+   1112  f440
+   1113  f440							; Check Right Input
+   1114  f440		       8a		      TXA
+   1115  f441		       29 80		      AND	#%10000000
+   1116  f443		       f0 12		      BEQ	RightInput
+   1117  f445
+   1118  f445							; Check Left Input
+   1119  f445		       8a		      TXA
+   1120  f446		       29 40		      AND	#%01000000
+   1121  f448		       f0 18		      BEQ	LeftInput
+   1122  f44a
+   1123  f44a							; Check Down Input
+   1124  f44a		       8a		      TXA
+   1125  f44b		       29 20		      AND	#%00100000
+   1126  f44d		       f0 20		      BEQ	DownInput
+   1127  f44f
+   1128  f44f							; Check Up Input
+   1129  f44f		       8a		      TXA
+   1130  f450		       29 10		      AND	#%00010000
+   1131  f452		       f0 22		      BEQ	UpInput
+   1132  f454
+   1133  f454							; No Input Detected
+   1134  f454		       4c 7a f4 	      JMP	ControllerRet
+   1135  f457
+   1136  f457				   RightInput
+   1137  f457		       a9 08		      LDA	#%1000
+   1138  f459		       85 0b		      STA	REFP0
+   1139  f45b		       85 a2		      STA	PlayerReflectedBuffer
+   1140  f45d
+   1141  f45d		       85 87		      STA	PlayerVelocityMask
+   1142  f45f		       4c 7a f4 	      JMP	ControllerRet
+   1143  f462
+   1144  f462				   LeftInput
+   1145  f462		       a9 00		      LDA	#0
+   1146  f464		       85 0b		      STA	REFP0
+   1147  f466		       85 a2		      STA	PlayerReflectedBuffer
+   1148  f468
+   1149  f468		       a9 04		      LDA	#%0100
+   1150  f46a		       85 87		      STA	PlayerVelocityMask
+   1151  f46c		       4c 7a f4 	      JMP	ControllerRet
+   1152  f46f
+   1153  f46f				   DownInput
+   1154  f46f		       a9 02		      LDA	#%0010
+   1155  f471		       85 87		      STA	PlayerVelocityMask
+   1156  f473		       4c 7a f4 	      JMP	ControllerRet
+   1157  f476
+   1158  f476				   UpInput
+   1159  f476		       a9 01		      LDA	#%0001
+   1160  f478		       85 87		      STA	PlayerVelocityMask
+   1161  f47a
+   1162  f47a				   ControllerRet
+   1163  f47a		       60		      RTS
+   1164  f47b
+   1165  f47b							;==================================================================================
+   1166  f47b							; GetController2Inputs - DEBUG - Controls Ghost
+   1167  f47b							;==================================================================================
+   1168  f47b
+   1169  f47b				   GetController2InputsDEBUG
+   1170  f47b		       ae 80 02 	      LDX	SWCHA
+   1171  f47e
+   1172  f47e							; Check Right Input
+   1173  f47e		       8a		      TXA
+   1174  f47f		       29 08		      AND	#%00001000
+   1175  f481		       f0 12		      BEQ	RightInputGhost
+   1176  f483
+   1177  f483							; Check Left Input
+   1178  f483		       8a		      TXA
+   1179  f484		       29 04		      AND	#%00000100
+   1180  f486		       f0 18		      BEQ	LeftInputGhost
+   1181  f488
+   1182  f488							; Check Down Input
+   1183  f488		       8a		      TXA
+   1184  f489		       29 02		      AND	#%00000010
+   1185  f48b		       f0 1e		      BEQ	DownInputGhost
+   1186  f48d
+   1187  f48d							; Check Up Input
+   1188  f48d		       8a		      TXA
+   1189  f48e		       29 01		      AND	#%00000001
+   1190  f490		       f0 1e		      BEQ	UpInputGhost
+   1191  f492
+   1192  f492							; No Input Detected
+   1193  f492		       4c b2 f4 	      JMP	ControllerRetGhost
+   1194  f495
+   1195  f495				   RightInputGhost
+   1196  f495		       e6 8a		      INC	GhostSpriteXPos
+   1197  f497		       a9 08		      LDA	#%1000
+   1198  f499		       85 0c		      STA	REFP1
+   1199  f49b		       85 a3		      STA	GhostReflectedBuffer
+   1200  f49d		       4c b2 f4 	      JMP	ControllerRetGhost
+   1201  f4a0
+   1202  f4a0				   LeftInputGhost
+   1203  f4a0		       c6 8a		      DEC	GhostSpriteXPos
+   1204  f4a2		       a9 00		      LDA	#0
+   1205  f4a4		       85 0c		      STA	REFP1
+   1206  f4a6		       85 a3		      STA	GhostReflectedBuffer
+   1207  f4a8		       4c b2 f4 	      JMP	ControllerRetGhost
+   1208  f4ab
+   1209  f4ab				   DownInputGhost
+   1210  f4ab		       c6 8b		      DEC	GhostSpriteYPos
+   1211  f4ad		       4c b2 f4 	      JMP	ControllerRetGhost
+   1212  f4b0
+   1213  f4b0				   UpInputGhost
+   1214  f4b0		       e6 8b		      INC	GhostSpriteYPos
+   1215  f4b2
+   1216  f4b2				   ControllerRetGhost
+   1217  f4b2		       60		      RTS
+   1218  f4b3
+   1219  f4b3							;==================================================================================
+   1220  f4b3							; UpdateTimer - Updates All Timers
+   1221  f4b3							;==================================================================================
+   1222  f4b3
+   1223  f4b3				   UpdateTimer
+   1224  f4b3				   UpdateTimer5
+   1225  f4b3		       a5 a0		      LDA	TimerCounter5
+   1226  f4b5		       c9 00		      CMP	#0
+   1227  f4b7		       d0 07		      BNE	DidntReachLimitTimer5
+   1228  f4b9
+   1229  f4b9				   ReachedLimitTimer5
+   1230  f4b9		       a9 05		      LDA	#TIMER_LIMIT1
+   1231  f4bb		       85 a0		      STA	TimerCounter5
+   1232  f4bd		       4c c2 f4 	      JMP	UpdateTimer20
+   1233  f4c0
+   1234  f4c0				   DidntReachLimitTimer5
+   1235  f4c0		       c6 a0		      DEC	TimerCounter5
+   1236  f4c2
+   1237  f4c2				   UpdateTimer20
+   1238  f4c2		       a5 a1		      LDA	TimerCounter20
+   1239  f4c4		       c9 00		      CMP	#0
+   1240  f4c6		       d0 07		      BNE	DidntReachLimitTimer20
+   1241  f4c8
+   1242  f4c8				   ReachedLimitTimer20
+   1243  f4c8		       a9 14		      LDA	#TIMER_LIMIT2
+   1244  f4ca		       85 a1		      STA	TimerCounter20
+   1245  f4cc		       4c d1 f4 	      JMP	TimerRet
+   1246  f4cf
+   1247  f4cf				   DidntReachLimitTimer20
+   1248  f4cf		       c6 a1		      DEC	TimerCounter20
+   1249  f4d1
+   1250  f4d1				   TimerRet
+   1251  f4d1		       60		      RTS
+   1252  f4d2
+   1253  f4d2							;==================================================================================
+   1254  f4d2							; UpdateScore
+   1255  f4d2							;==================================================================================
+   1256  f4d2
+   1257  f4d2				   UpdateScore
+   1258  f4d2							; Check If Wafer Was Picked Up
+   1259  f4d2		       a5 94		      LDA	PickedUpWaferBuffer
+   1260  f4d4		       c9 00		      CMP	#0
+   1261  f4d6		       f0 24		      BEQ	DidntPickUpWafer
+   1262  f4d8
+   1263  f4d8							; Increase Ones
+   1264  f4d8		       e6 99		      INC	ScoreOnes
+   1265  f4da
+   1266  f4da							; Check if Ones reached 10
+   1267  f4da		       a6 99		      LDX	ScoreOnes
+   1268  f4dc		       e0 0a		      CPX	#10
+   1269  f4de		       d0 1c		      BNE	NotYet10
+   1270  f4e0
+   1271  f4e0				   OnesReached10
+   1272  f4e0							; Reset Ones and Increase Tens
+   1273  f4e0		       a2 00		      LDX	#0
+   1274  f4e2		       86 99		      STX	ScoreOnes
+   1275  f4e4		       e6 98		      INC	ScoreTens
+   1276  f4e6
+   1277  f4e6							; Check if Tens reached 10
+   1278  f4e6		       a6 98		      LDX	ScoreTens
+   1279  f4e8		       e0 0a		      CPX	#10
+   1280  f4ea		       d0 10		      BNE	NotYet10
+   1281  f4ec
+   1282  f4ec				   TensReached10
+   1283  f4ec							; Reset Tens
+   1284  f4ec		       a2 00		      LDX	#0
+   1285  f4ee		       86 98		      STX	ScoreTens
+   1286  f4f0		       e6 97		      INC	ScoreHundreds
+   1287  f4f2
+   1288  f4f2							; Check if Hundreds reached 10
+   1289  f4f2		       a6 97		      LDX	ScoreHundreds
+   1290  f4f4		       e0 0a		      CPX	#10
+   1291  f4f6		       d0 04		      BNE	NotYet10
+   1292  f4f8
+   1293  f4f8				   HundredsReached10
+   1294  f4f8							; Reset Hundreds
+   1295  f4f8		       a2 00		      LDX	#0
+   1296  f4fa		       86 97		      STX	ScoreHundreds
+   1297  f4fc
+   1298  f4fc				   DidntPickUpWafer
+   1299  f4fc				   NotYet10
+   1300  f4fc							; Flush PickedUpWaferBuffer
+   1301  f4fc		       a9 00		      LDA	#0
+   1302  f4fe		       85 94		      STA	PickedUpWaferBuffer
+   1303  f500
+   1304  f500		       60		      RTS
+   1305  f501
+   1306  f501							;==================================================================================
+   1307  f501							; Delay12 - Waste 12 cycles of CPU
+   1308  f501							;==================================================================================
+   1309  f501
+   1310  f501				   Delay12
+   1311  f501		       60		      RTS
+   1312  f502
+   1313  f502							;==================================================================================
+   1314  f502							; WaferXPosArray0
+   1315  f502							;==================================================================================
+   1316  f502
+   1317  f502				   WaferXPosArray0
+   1318  f502		       19 23 3c 64*	      .byte.b	25,35,60,100,130,140
+   1319  f508
+   1320  f508							;==================================================================================
+   1321  f508							; FindWaferLookUp - Look up table for finding wafer in memory
+   1322  f508							;==================================================================================
+   1323  f508
+   1324  f508				   FindWaferLookUp
+   1325  f508		       00 02 04 08*	      .byte.b	0,%00000010,%00000100,%00001000,%00010000,%00100000,%01000000,%10000000
+   1326  f510
+   1327  f510							;==================================================================================
+   1328  f510							; MultBy14
+   1329  f510							;==================================================================================
+   1330  f510
+   1331  f510				   MultBy14
+   1332  f510		       f0 fe 0c 1a*	      .byte.b	-16,-2,12,26,40,54,68,82,96,110,124
+   1333  f51b
+   1334  f51b							;==================================================================================
+   1335  f51b							; Lives Icons NUSIZ0 Look up table
+   1336  f51b							;==================================================================================
+   1337  f51b
+   1338  f51b				   LivesNUSIZ0LookUp
+   1339  f51b		       00 00 01 03	      .byte.b	0,0,%001,%011
+   1340  f51f
+   1341  f51f							;==================================================================================
+   1342  f51f							; CheckLineBytes
+   1343  f51f							;==================================================================================
+   1344  f51f
+   1345  f51f				   CheckLineBytes
+   1346  f51f		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1347  f52a		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,7,7,0,0
+   1348  f535		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1349  f540		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1350  f54b		       06 06 00 00*	      .byte.b	6,6,0,0,0,0,0,0,0,0,0
+   1351  f556		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1352  f561		       00 00 00 00*	      .byte.b	0,0,0,0,5,5,0,0,0,0,0
+   1353  f56c		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1354  f577		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,4,4,0,0,0
+   1355  f582		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1356  f58d		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,3,3,0
+   1357  f598		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1358  f5a3		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,2
+   1359  f5ae		       02 00 00 00*	      .byte.b	2,0,0,0,0,0,0,0,0,0,0
+   1360  f5b9		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1361  f5c4		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,1,1
+   1362  f5cf		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1363  f5da		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1364  f5e5		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1365  f5f0		       00 00 00 00*	      .byte.b	0,0,0,0,0,0,0,0,0,0,0
+   1366  f5fb
+   1367  f5fb							;===============================================================================
+   1368  f5fb							; free space check before page boundry
+   1369  f5fb							;===============================================================================
+   1370  f5fb
+ Start of Sprite0Data is:  $f5fb
+   1371  f5fb					      echo	"Start of Sprite0Data is: ", *
+   1372  f600		       00 00 00 00*	      align	256
+   1373  f600
+   1374  f600							;==================================================================================
+   1375  f600							; Sprite Data - Pacman
+   1376  f600							;==================================================================================
+   1377  f600
+   1378  f600				   Sprite0Data
+   1379  f600							; Frame 0
+   1380  f600		       00		      .byte.b	#%00000000
+   1381  f601		       00		      .byte.b	#%00000000
+   1382  f602		       7e		      .byte.b	#%01111110
+   1383  f603		       7e		      .byte.b	#%01111110
+   1384  f604		       3f		      .byte.b	#%00111111
+   1385  f605		       3f		      .byte.b	#%00111111
+   1386  f606		       0f		      .byte.b	#%00001111
+   1387  f607		       0f		      .byte.b	#%00001111
+   1388  f608		       07		      .byte.b	#%00000111
+   1389  f609		       07		      .byte.b	#%00000111
+   1390  f60a		       0f		      .byte.b	#%00001111
+   1391  f60b		       0f		      .byte.b	#%00001111
+   1392  f60c		       3f		      .byte.b	#%00111111
+   1393  f60d		       3f		      .byte.b	#%00111111
+   1394  f60e		       7e		      .byte.b	#%01111110
+   1395  f60f		       7e		      .byte.b	#%01111110
+   1396  f610		       00		      .byte.b	#%00000000
+   1397  f611		       00		      .byte.b	#%00000000
+   1398  f612
+   1399  f612				   Sprite1Data
+   1400  f612							; Frame 1
+   1401  f612		       00		      .byte.b	#%00000000
+   1402  f613		       00		      .byte.b	#%00000000
+   1403  f614		       7e		      .byte.b	#%01111110
+   1404  f615		       7e		      .byte.b	#%01111110
+   1405  f616		       ff		      .byte.b	#%11111111
+   1406  f617		       ff		      .byte.b	#%11111111
+   1407  f618		       3f		      .byte.b	#%00111111
+   1408  f619		       3f		      .byte.b	#%00111111
+   1409  f61a		       0f		      .byte.b	#%00001111
+   1410  f61b		       0f		      .byte.b	#%00001111
+   1411  f61c		       3f		      .byte.b	#%00111111
+   1412  f61d		       3f		      .byte.b	#%00111111
+   1413  f61e		       ff		      .byte.b	#%11111111
+   1414  f61f		       ff		      .byte.b	#%11111111
+   1415  f620		       7e		      .byte.b	#%01111110
+   1416  f621		       7e		      .byte.b	#%01111110
+   1417  f622		       00		      .byte.b	#%00000000
+   1418  f623		       00		      .byte.b	#%00000000
+   1419  f624
+   1420  f624				   Sprite2Data
+   1421  f624							; Frame 2
+   1422  f624		       00		      .byte.b	#%00000000
+   1423  f625		       00		      .byte.b	#%00000000
+   1424  f626		       7e		      .byte.b	#%01111110
+   1425  f627		       7e		      .byte.b	#%01111110
+   1426  f628		       ff		      .byte.b	#%11111111
+   1427  f629		       ff		      .byte.b	#%11111111
+   1428  f62a		       ff		      .byte.b	#%11111111
+   1429  f62b		       ff		      .byte.b	#%11111111
+   1430  f62c		       0f		      .byte.b	#%00001111
+   1431  f62d		       0f		      .byte.b	#%00001111
+   1432  f62e		       ff		      .byte.b	#%11111111
+   1433  f62f		       ff		      .byte.b	#%11111111
+   1434  f630		       ff		      .byte.b	#%11111111
+   1435  f631		       ff		      .byte.b	#%11111111
+   1436  f632		       7e		      .byte.b	#%01111110
+   1437  f633		       7e		      .byte.b	#%01111110
+   1438  f634		       00		      .byte.b	#%00000000
+   1439  f635		       00		      .byte.b	#%00000000
+   1440  f636
+   1441  f636				   Sprite3Data
+   1442  f636							; Frame 3
+   1443  f636		       00		      .byte.b	#%00000000
+   1444  f637		       00		      .byte.b	#%00000000
+   1445  f638		       7e		      .byte.b	#%01111110
+   1446  f639		       7e		      .byte.b	#%01111110
+   1447  f63a		       ff		      .byte.b	#%11111111
+   1448  f63b		       ff		      .byte.b	#%11111111
+   1449  f63c		       ff		      .byte.b	#%11111111
+   1450  f63d		       ff		      .byte.b	#%11111111
+   1451  f63e		       ff		      .byte.b	#%11111111
+   1452  f63f		       ff		      .byte.b	#%11111111
+   1453  f640		       ff		      .byte.b	#%11111111
+   1454  f641		       ff		      .byte.b	#%11111111
+   1455  f642		       ff		      .byte.b	#%11111111
+   1456  f643		       ff		      .byte.b	#%11111111
+   1457  f644		       7e		      .byte.b	#%01111110
+   1458  f645		       7e		      .byte.b	#%01111110
+   1459  f646		       00		      .byte.b	#%00000000
+   1460  f647		       00		      .byte.b	#%00000000
+   1461  f648
+   1462  f648				   Sprite4Data
+   1463  f648							; Frame 4
+   1464  f648		       00		      .byte.b	#%00000000
+   1465  f649		       00		      .byte.b	#%00000000
+   1466  f64a		       1e		      .byte.b	#%00011110
+   1467  f64b		       1e		      .byte.b	#%00011110
+   1468  f64c		       1f		      .byte.b	#%00011111
+   1469  f64d		       1f		      .byte.b	#%00011111
+   1470  f64e		       0f		      .byte.b	#%00001111
+   1471  f64f		       0f		      .byte.b	#%00001111
+   1472  f650		       07		      .byte.b	#%00000111
+   1473  f651		       07		      .byte.b	#%00000111
+   1474  f652		       0f		      .byte.b	#%00001111
+   1475  f653		       0f		      .byte.b	#%00001111
+   1476  f654		       1f		      .byte.b	#%00011111
+   1477  f655		       1f		      .byte.b	#%00011111
+   1478  f656		       1e		      .byte.b	#%00011110
+   1479  f657		       1e		      .byte.b	#%00011110
+   1480  f658		       00		      .byte.b	#%00000000
+   1481  f659		       00		      .byte.b	#%00000000
+   1482  f65a
+   1483  f65a				   Sprite5Data
+   1484  f65a							; Frame 5
+   1485  f65a		       00		      .byte.b	#%00000000
+   1486  f65b		       00		      .byte.b	#%00000000
+   1487  f65c		       02		      .byte.b	#%00000010
+   1488  f65d		       02		      .byte.b	#%00000010
+   1489  f65e		       07		      .byte.b	#%00000111
+   1490  f65f		       07		      .byte.b	#%00000111
+   1491  f660		       07		      .byte.b	#%00000111
+   1492  f661		       07		      .byte.b	#%00000111
+   1493  f662		       07		      .byte.b	#%00000111
+   1494  f663		       07		      .byte.b	#%00000111
+   1495  f664		       07		      .byte.b	#%00000111
+   1496  f665		       07		      .byte.b	#%00000111
+   1497  f666		       07		      .byte.b	#%00000111
+   1498  f667		       07		      .byte.b	#%00000111
+   1499  f668		       02		      .byte.b	#%00000010
+   1500  f669		       02		      .byte.b	#%00000010
+   1501  f66a		       00		      .byte.b	#%00000000
+   1502  f66b		       00		      .byte.b	#%00000000
+   1503  f66c
+   1504  f66c				   Sprite6Data
+   1505  f66c							; Frame 6
+   1506  f66c		       00		      .byte.b	#%00000000
+   1507  f66d		       00		      .byte.b	#%00000000
+   1508  f66e		       00		      .byte.b	#%00000000
+   1509  f66f		       00		      .byte.b	#%00000000
+   1510  f670		       00		      .byte.b	#%00000000
+   1511  f671		       03		      .byte.b	#%00000011
+   1512  f672		       03		      .byte.b	#%00000011
+   1513  f673		       07		      .byte.b	#%00000111
+   1514  f674		       07		      .byte.b	#%00000111
+   1515  f675		       07		      .byte.b	#%00000111
+   1516  f676		       07		      .byte.b	#%00000111
+   1517  f677		       03		      .byte.b	#%00000011
+   1518  f678		       03		      .byte.b	#%00000011
+   1519  f679		       00		      .byte.b	#%00000000
+   1520  f67a		       00		      .byte.b	#%00000000
+   1521  f67b		       00		      .byte.b	#%00000000
+   1522  f67c		       00		      .byte.b	#%00000000
+   1523  f67d		       00		      .byte.b	#%00000000
+   1524  f67e
+   1525  f67e				   Sprite7Data
+   1526  f67e							; Frame 7
+   1527  f67e		       00		      .byte.b	#%00000000
+   1528  f67f		       00		      .byte.b	#%00000000
+   1529  f680		       00		      .byte.b	#%00000000
+   1530  f681		       00		      .byte.b	#%00000000
+   1531  f682		       00		      .byte.b	#%00000000
+   1532  f683		       00		      .byte.b	#%00000000
+   1533  f684		       00		      .byte.b	#%00000000
+   1534  f685		       07		      .byte.b	#%00000111
+   1535  f686		       07		      .byte.b	#%00000111
+   1536  f687		       07		      .byte.b	#%00000111
+   1537  f688		       07		      .byte.b	#%00000111
+   1538  f689		       00		      .byte.b	#%00000000
+   1539  f68a		       00		      .byte.b	#%00000000
+   1540  f68b		       00		      .byte.b	#%00000000
+   1541  f68c		       00		      .byte.b	#%00000000
+   1542  f68d		       00		      .byte.b	#%00000000
+   1543  f68e		       00		      .byte.b	#%00000000
+   1544  f68f		       00		      .byte.b	#%00000000
+   1545  f690
+   1546  f690				   Sprite8Data
+   1547  f690							; Frame 8
+   1548  f690		       00		      .byte.b	#%00000000
+   1549  f691		       00		      .byte.b	#%00000000
+   1550  f692		       81		      .byte.b	#%10000001
+   1551  f693		       81		      .byte.b	#%10000001
+   1552  f694		       44		      .byte.b	#%01000100
+   1553  f695		       44		      .byte.b	#%01000100
+   1554  f696		       38		      .byte.b	#%00111000
+   1555  f697		       38		      .byte.b	#%00111000
+   1556  f698		       46		      .byte.b	#%01000110
+   1557  f699		       46		      .byte.b	#%01000110
+   1558  f69a		       81		      .byte.b	#%10000001
+   1559  f69b		       81		      .byte.b	#%10000001
+   1560  f69c		       00		      .byte.b	#%00000000
+   1561  f69d		       00		      .byte.b	#%00000000
+   1562  f69e		       00		      .byte.b	#%00000000
+   1563  f69f		       00		      .byte.b	#%00000000
+   1564  f6a0
+   1565  f6a0				   Sprite9Data
+   1566  f6a0							; Frame 9
+   1567  f6a0		       00		      .byte.b	#%00000000
+   1568  f6a1		       00		      .byte.b	#%00000000
+   1569  f6a2		       10		      .byte.b	#%00010000
+   1570  f6a3		       10		      .byte.b	#%00010000
+   1571  f6a4		       81		      .byte.b	#%10000001
+   1572  f6a5		       81		      .byte.b	#%10000001
+   1573  f6a6		       00		      .byte.b	#%00000000
+   1574  f6a7		       00		      .byte.b	#%00000000
+   1575  f6a8		       80		      .byte.b	#%10000000
+   1576  f6a9		       80		      .byte.b	#%10000000
+   1577  f6aa		       01		      .byte.b	#%00000001
+   1578  f6ab		       01		      .byte.b	#%00000001
+   1579  f6ac		       00		      .byte.b	#%00000000
+   1580  f6ad		       00		      .byte.b	#%00000000
+   1581  f6ae		       00		      .byte.b	#%00000000
+   1582  f6af		       00		      .byte.b	#%00000000
+   1583  f6b0
+   1584  f6b0							;==================================================================================
+   1585  f6b0							; Sprite Data - Ghost
+   1586  f6b0							;==================================================================================
+   1587  f6b0
+   1588  f6b0				   SpriteGhostData
+   1589  f6b0		       00		      .byte.b	#%00000000
+   1590  f6b1		       00		      .byte.b	#%00000000
+   1591  f6b2		       55		      .byte.b	#%01010101
+   1592  f6b3		       55		      .byte.b	#%01010101
+   1593  f6b4		       ff		      .byte.b	#%11111111
+   1594  f6b5		       ff		      .byte.b	#%11111111
+   1595  f6b6		       ff		      .byte.b	#%11111111
+   1596  f6b7		       99		      .byte.b	#%10011001
+   1597  f6b8		       99		      .byte.b	#%10011001
+   1598  f6b9		       bb		      .byte.b	#%10111011
+   1599  f6ba		       bb		      .byte.b	#%10111011
+   1600  f6bb		       ff		      .byte.b	#%11111111
+   1601  f6bc		       7e		      .byte.b	#%01111110
+   1602  f6bd		       7e		      .byte.b	#%01111110
+   1603  f6be		       7e		      .byte.b	#%01111110
+   1604  f6bf		       7e		      .byte.b	#%01111110
+   1605  f6c0		       00		      .byte.b	#%00000000
+   1606  f6c1		       00		      .byte.b	#%00000000
+   1607  f6c2
+   1608  f6c2							;==================================================================================
+   1609  f6c2							; Sprite Data - Lives
+   1610  f6c2							;==================================================================================
+   1611  f6c2
+   1612  f6c2				   SpriteLifeData
+   1613  f6c2		       00		      .byte.b	#%00000000
+   1614  f6c3		       00		      .byte.b	#%00000000
+   1615  f6c4		       00		      .byte.b	#%00000000
+   1616  f6c5		       00		      .byte.b	#%00000000
+   1617  f6c6		       00		      .byte.b	#%00000000
+   1618  f6c7		       00		      .byte.b	#%00000000
+   1619  f6c8		       00		      .byte.b	#%00000000
+   1620  f6c9		       00		      .byte.b	#%00000000
+   1621  f6ca		       00		      .byte.b	#%00000000
+   1622  f6cb		       00		      .byte.b	#%00000000
+   1623  f6cc		       00		      .byte.b	#%00000000
+   1624  f6cd		       00		      .byte.b	#%00000000
+   1625  f6ce		       00		      .byte.b	#%00000000
+   1626  f6cf		       00		      .byte.b	#%00000000
+   1627  f6d0		       00		      .byte.b	#%00000000
+   1628  f6d1		       00		      .byte.b	#%00000000
+   1629  f6d2		       00		      .byte.b	#%00000000
+   1630  f6d3		       00		      .byte.b	#%00000000
+   1631  f6d4		       3c		      .byte.b	#%00111100
+   1632  f6d5		       7e		      .byte.b	#%01111110
+   1633  f6d6		       ff		      .byte.b	#%11111111
+   1634  f6d7		       ff		      .byte.b	#%11111111
+   1635  f6d8		       ff		      .byte.b	#%11111111
+   1636  f6d9		       ff		      .byte.b	#%11111111
+   1637  f6da		       ff		      .byte.b	#%11111111
+   1638  f6db		       ff		      .byte.b	#%11111111
+   1639  f6dc		       ff		      .byte.b	#%11111111
+   1640  f6dd		       7e		      .byte.b	#%01111110
+   1641  f6de		       3c		      .byte.b	#%00111100
+   1642  f6df		       00		      .byte.b	#%00000000
+   1643  f6e0
+   1644  f6e0							;==================================================================================
+   1645  f6e0							; free space check before page boundry
+   1646  f6e0							;==================================================================================
+   1647  f6e0
+ End of Sprite0Data is:  $f6e0
+   1648  f6e0					      echo	"End of Sprite0Data is: ", *
+   1649  f700		       00 00 00 00*	      align	256
+   1650  f700
+   1651  f700							;==================================================================================
+   1652  f700							; Board Data
+   1653  f700							;==================================================================================
+   1654  f700
 ------- FILE MainBoard.asm LEVEL 2 PASS 2
       0  f700					      include	"MainBoard.asm"
       1  f700				   MainBoard
@@ -2251,774 +2612,194 @@
     579  f93d		       ff		      .byte.b	255
     580  f93e		       00		      .byte.b	0
     581  f93f		       00		      .byte.b	0
-    582  f940				   MainBoard_STRIP_3
-    583  f940		       00		      .byte.b	0
-    584  f941		       00		      .byte.b	0
-    585  f942		       f0		      .byte.b	240
-    586  f943		       f0		      .byte.b	240
-    587  f944		       f0		      .byte.b	240
-    588  f945		       10		      .byte.b	16
-    589  f946		       10		      .byte.b	16
-    590  f947		       10		      .byte.b	16
-    591  f948		       10		      .byte.b	16
-    592  f949		       10		      .byte.b	16
-    593  f94a		       10		      .byte.b	16
-    594  f94b		       10		      .byte.b	16
-    595  f94c		       10		      .byte.b	16
-    596  f94d		       10		      .byte.b	16
-    597  f94e		       10		      .byte.b	16
-    598  f94f		       10		      .byte.b	16
-    599  f950		       10		      .byte.b	16
-    600  f951		       10		      .byte.b	16
-    601  f952		       10		      .byte.b	16
-    602  f953		       10		      .byte.b	16
-    603  f954		       10		      .byte.b	16
-    604  f955		       10		      .byte.b	16
-    605  f956		       10		      .byte.b	16
-    606  f957		       10		      .byte.b	16
-    607  f958		       10		      .byte.b	16
-    608  f959		       10		      .byte.b	16
-    609  f95a		       10		      .byte.b	16
-    610  f95b		       10		      .byte.b	16
-    611  f95c		       10		      .byte.b	16
-    612  f95d		       10		      .byte.b	16
-    613  f95e		       10		      .byte.b	16
-    614  f95f		       10		      .byte.b	16
-    615  f960		       10		      .byte.b	16
-    616  f961		       10		      .byte.b	16
-    617  f962		       10		      .byte.b	16
-    618  f963		       00		      .byte.b	0
-    619  f964		       00		      .byte.b	0
-    620  f965		       00		      .byte.b	0
-    621  f966		       00		      .byte.b	0
-    622  f967		       00		      .byte.b	0
-    623  f968		       00		      .byte.b	0
-    624  f969		       00		      .byte.b	0
-    625  f96a		       00		      .byte.b	0
-    626  f96b		       00		      .byte.b	0
-    627  f96c		       00		      .byte.b	0
-    628  f96d		       00		      .byte.b	0
-    629  f96e		       00		      .byte.b	0
-    630  f96f		       00		      .byte.b	0
-    631  f970		       00		      .byte.b	0
-    632  f971		       00		      .byte.b	0
-    633  f972		       00		      .byte.b	0
-    634  f973		       00		      .byte.b	0
-    635  f974		       00		      .byte.b	0
-    636  f975		       00		      .byte.b	0
-    637  f976		       00		      .byte.b	0
-    638  f977		       00		      .byte.b	0
-    639  f978		       00		      .byte.b	0
-    640  f979		       70		      .byte.b	112
-    641  f97a		       70		      .byte.b	112
-    642  f97b		       70		      .byte.b	112
-    643  f97c		       70		      .byte.b	112
-    644  f97d		       10		      .byte.b	16
-    645  f97e		       10		      .byte.b	16
-    646  f97f		       10		      .byte.b	16
-    647  f980		       10		      .byte.b	16
-    648  f981		       10		      .byte.b	16
-    649  f982		       10		      .byte.b	16
-    650  f983		       10		      .byte.b	16
-    651  f984		       10		      .byte.b	16
-    652  f985		       10		      .byte.b	16
-    653  f986		       10		      .byte.b	16
-    654  f987		       10		      .byte.b	16
-    655  f988		       10		      .byte.b	16
-    656  f989		       10		      .byte.b	16
-    657  f98a		       10		      .byte.b	16
-    658  f98b		       10		      .byte.b	16
-    659  f98c		       10		      .byte.b	16
-    660  f98d		       10		      .byte.b	16
-    661  f98e		       10		      .byte.b	16
-    662  f98f		       10		      .byte.b	16
-    663  f990		       10		      .byte.b	16
-    664  f991		       10		      .byte.b	16
-    665  f992		       10		      .byte.b	16
-    666  f993		       10		      .byte.b	16
-    667  f994		       10		      .byte.b	16
-    668  f995		       00		      .byte.b	0
-    669  f996		       00		      .byte.b	0
-    670  f997		       00		      .byte.b	0
-    671  f998		       00		      .byte.b	0
-    672  f999		       00		      .byte.b	0
-    673  f99a		       00		      .byte.b	0
-    674  f99b		       00		      .byte.b	0
-    675  f99c		       00		      .byte.b	0
-    676  f99d		       00		      .byte.b	0
-    677  f99e		       00		      .byte.b	0
-    678  f99f		       00		      .byte.b	0
-    679  f9a0		       00		      .byte.b	0
-    680  f9a1		       00		      .byte.b	0
-    681  f9a2		       00		      .byte.b	0
-    682  f9a3		       00		      .byte.b	0
-    683  f9a4		       00		      .byte.b	0
-    684  f9a5		       00		      .byte.b	0
-    685  f9a6		       00		      .byte.b	0
-    686  f9a7		       00		      .byte.b	0
-    687  f9a8		       00		      .byte.b	0
-    688  f9a9		       00		      .byte.b	0
-    689  f9aa		       70		      .byte.b	112
-    690  f9ab		       70		      .byte.b	112
-    691  f9ac		       70		      .byte.b	112
-    692  f9ad		       40		      .byte.b	64
-    693  f9ae		       40		      .byte.b	64
-    694  f9af		       40		      .byte.b	64
-    695  f9b0		       40		      .byte.b	64
-    696  f9b1		       40		      .byte.b	64
-    697  f9b2		       40		      .byte.b	64
-    698  f9b3		       40		      .byte.b	64
-    699  f9b4		       40		      .byte.b	64
-    700  f9b5		       40		      .byte.b	64
-    701  f9b6		       40		      .byte.b	64
-    702  f9b7		       40		      .byte.b	64
-    703  f9b8		       40		      .byte.b	64
-    704  f9b9		       40		      .byte.b	64
-    705  f9ba		       40		      .byte.b	64
-    706  f9bb		       40		      .byte.b	64
-    707  f9bc		       40		      .byte.b	64
-    708  f9bd		       40		      .byte.b	64
-    709  f9be		       40		      .byte.b	64
-    710  f9bf		       40		      .byte.b	64
-    711  f9c0		       40		      .byte.b	64
-    712  f9c1		       40		      .byte.b	64
-    713  f9c2		       c0		      .byte.b	192
-    714  f9c3		       f0		      .byte.b	240
-    715  f9c4		       f0		      .byte.b	240
-    716  f9c5		       00		      .byte.b	0
-    717  f9c6		       00		      .byte.b	0
-    718  f9c7		       00		      .byte.b	0
-    719  f9c8		       00		      .byte.b	0
-    720  f9c9		       00		      .byte.b	0
-    721  f9ca		       00		      .byte.b	0
-    722  f9cb		       00		      .byte.b	0
-    723  f9cc		       00		      .byte.b	0
-    724  f9cd		       00		      .byte.b	0
-    725  f9ce		       00		      .byte.b	0
-    726  f9cf		       00		      .byte.b	0
-    727  f9d0		       00		      .byte.b	0
-    728  f9d1		       00		      .byte.b	0
-    729  f9d2		       00		      .byte.b	0
-    730  f9d3		       00		      .byte.b	0
-    731  f9d4		       00		      .byte.b	0
-    732  f9d5		       00		      .byte.b	0
-    733  f9d6		       00		      .byte.b	0
-    734  f9d7		       00		      .byte.b	0
-    735  f9d8		       00		      .byte.b	0
-    736  f9d9		       00		      .byte.b	0
-    737  f9da		       00		      .byte.b	0
-    738  f9db		       10		      .byte.b	16
-    739  f9dc		       10		      .byte.b	16
-    740  f9dd		       10		      .byte.b	16
-    741  f9de		       10		      .byte.b	16
-    742  f9df		       10		      .byte.b	16
-    743  f9e0		       10		      .byte.b	16
-    744  f9e1		       10		      .byte.b	16
-    745  f9e2		       10		      .byte.b	16
-    746  f9e3		       10		      .byte.b	16
-    747  f9e4		       10		      .byte.b	16
-    748  f9e5		       10		      .byte.b	16
-    749  f9e6		       10		      .byte.b	16
-    750  f9e7		       10		      .byte.b	16
-    751  f9e8		       10		      .byte.b	16
-    752  f9e9		       10		      .byte.b	16
-    753  f9ea		       10		      .byte.b	16
-    754  f9eb		       10		      .byte.b	16
-    755  f9ec		       10		      .byte.b	16
-    756  f9ed		       10		      .byte.b	16
-    757  f9ee		       10		      .byte.b	16
-    758  f9ef		       10		      .byte.b	16
-    759  f9f0		       10		      .byte.b	16
-    760  f9f1		       10		      .byte.b	16
-    761  f9f2		       10		      .byte.b	16
-    762  f9f3		       10		      .byte.b	16
-    763  f9f4		       10		      .byte.b	16
-    764  f9f5		       10		      .byte.b	16
-    765  f9f6		       10		      .byte.b	16
-    766  f9f7		       10		      .byte.b	16
-    767  f9f8		       10		      .byte.b	16
-    768  f9f9		       10		      .byte.b	16
-    769  f9fa		       f0		      .byte.b	240
-    770  f9fb		       f0		      .byte.b	240
-    771  f9fc		       f0		      .byte.b	240
-    772  f9fd		       f0		      .byte.b	240
-    773  f9fe		       00		      .byte.b	0
-    774  f9ff		       00		      .byte.b	0
-    775  fa00				   MainBoard_STRIP_4
-    776  fa00		       00		      .byte.b	0
-    777  fa01		       00		      .byte.b	0
-    778  fa02		       ff		      .byte.b	255
-    779  fa03		       ff		      .byte.b	255
-    780  fa04		       ff		      .byte.b	255
-    781  fa05		       00		      .byte.b	0
-    782  fa06		       00		      .byte.b	0
-    783  fa07		       00		      .byte.b	0
-    784  fa08		       00		      .byte.b	0
-    785  fa09		       00		      .byte.b	0
-    786  fa0a		       00		      .byte.b	0
-    787  fa0b		       00		      .byte.b	0
-    788  fa0c		       00		      .byte.b	0
-    789  fa0d		       00		      .byte.b	0
-    790  fa0e		       00		      .byte.b	0
-    791  fa0f		       00		      .byte.b	0
-    792  fa10		       00		      .byte.b	0
-    793  fa11		       00		      .byte.b	0
-    794  fa12		       00		      .byte.b	0
-    795  fa13		       00		      .byte.b	0
-    796  fa14		       00		      .byte.b	0
-    797  fa15		       00		      .byte.b	0
-    798  fa16		       00		      .byte.b	0
-    799  fa17		       00		      .byte.b	0
-    800  fa18		       00		      .byte.b	0
-    801  fa19		       00		      .byte.b	0
-    802  fa1a		       00		      .byte.b	0
-    803  fa1b		       00		      .byte.b	0
-    804  fa1c		       00		      .byte.b	0
-    805  fa1d		       00		      .byte.b	0
-    806  fa1e		       00		      .byte.b	0
-    807  fa1f		       fc		      .byte.b	252
-    808  fa20		       fc		      .byte.b	252
-    809  fa21		       fc		      .byte.b	252
-    810  fa22		       fc		      .byte.b	252
-    811  fa23		       1c		      .byte.b	28
-    812  fa24		       1c		      .byte.b	28
-    813  fa25		       1c		      .byte.b	28
-    814  fa26		       1c		      .byte.b	28
-    815  fa27		       1c		      .byte.b	28
-    816  fa28		       1c		      .byte.b	28
-    817  fa29		       1c		      .byte.b	28
-    818  fa2a		       1c		      .byte.b	28
-    819  fa2b		       1c		      .byte.b	28
-    820  fa2c		       1c		      .byte.b	28
-    821  fa2d		       1c		      .byte.b	28
-    822  fa2e		       1c		      .byte.b	28
-    823  fa2f		       1c		      .byte.b	28
-    824  fa30		       1c		      .byte.b	28
-    825  fa31		       1c		      .byte.b	28
-    826  fa32		       1c		      .byte.b	28
-    827  fa33		       1c		      .byte.b	28
-    828  fa34		       1c		      .byte.b	28
-    829  fa35		       1c		      .byte.b	28
-    830  fa36		       1c		      .byte.b	28
-    831  fa37		       1c		      .byte.b	28
-    832  fa38		       1c		      .byte.b	28
-    833  fa39		       1c		      .byte.b	28
-    834  fa3a		       1c		      .byte.b	28
-    835  fa3b		       1c		      .byte.b	28
-    836  fa3c		       1c		      .byte.b	28
-    837  fa3d		       00		      .byte.b	0
-    838  fa3e		       00		      .byte.b	0
-    839  fa3f		       00		      .byte.b	0
-    840  fa40		       00		      .byte.b	0
-    841  fa41		       00		      .byte.b	0
-    842  fa42		       00		      .byte.b	0
-    843  fa43		       00		      .byte.b	0
-    844  fa44		       00		      .byte.b	0
-    845  fa45		       00		      .byte.b	0
-    846  fa46		       00		      .byte.b	0
-    847  fa47		       00		      .byte.b	0
-    848  fa48		       00		      .byte.b	0
-    849  fa49		       00		      .byte.b	0
-    850  fa4a		       00		      .byte.b	0
-    851  fa4b		       00		      .byte.b	0
-    852  fa4c		       00		      .byte.b	0
-    853  fa4d		       00		      .byte.b	0
-    854  fa4e		       00		      .byte.b	0
-    855  fa4f		       00		      .byte.b	0
-    856  fa50		       00		      .byte.b	0
-    857  fa51		       00		      .byte.b	0
-    858  fa52		       ff		      .byte.b	255
-    859  fa53		       ff		      .byte.b	255
-    860  fa54		       ff		      .byte.b	255
-    861  fa55		       00		      .byte.b	0
-    862  fa56		       00		      .byte.b	0
-    863  fa57		       00		      .byte.b	0
-    864  fa58		       00		      .byte.b	0
-    865  fa59		       00		      .byte.b	0
-    866  fa5a		       00		      .byte.b	0
-    867  fa5b		       00		      .byte.b	0
-    868  fa5c		       00		      .byte.b	0
-    869  fa5d		       00		      .byte.b	0
-    870  fa5e		       00		      .byte.b	0
-    871  fa5f		       00		      .byte.b	0
-    872  fa60		       00		      .byte.b	0
-    873  fa61		       00		      .byte.b	0
-    874  fa62		       00		      .byte.b	0
-    875  fa63		       00		      .byte.b	0
-    876  fa64		       00		      .byte.b	0
-    877  fa65		       00		      .byte.b	0
-    878  fa66		       00		      .byte.b	0
-    879  fa67		       00		      .byte.b	0
-    880  fa68		       00		      .byte.b	0
-    881  fa69		       00		      .byte.b	0
-    882  fa6a		       00		      .byte.b	0
-    883  fa6b		       3f		      .byte.b	63
-    884  fa6c		       3f		      .byte.b	63
-    885  fa6d		       00		      .byte.b	0
-    886  fa6e		       00		      .byte.b	0
-    887  fa6f		       00		      .byte.b	0
-    888  fa70		       00		      .byte.b	0
-    889  fa71		       00		      .byte.b	0
-    890  fa72		       00		      .byte.b	0
-    891  fa73		       00		      .byte.b	0
-    892  fa74		       00		      .byte.b	0
-    893  fa75		       00		      .byte.b	0
-    894  fa76		       00		      .byte.b	0
-    895  fa77		       00		      .byte.b	0
-    896  fa78		       00		      .byte.b	0
-    897  fa79		       00		      .byte.b	0
-    898  fa7a		       00		      .byte.b	0
-    899  fa7b		       00		      .byte.b	0
-    900  fa7c		       00		      .byte.b	0
-    901  fa7d		       00		      .byte.b	0
-    902  fa7e		       00		      .byte.b	0
-    903  fa7f		       00		      .byte.b	0
-    904  fa80		       00		      .byte.b	0
-    905  fa81		       00		      .byte.b	0
-    906  fa82		       ff		      .byte.b	255
-    907  fa83		       ff		      .byte.b	255
-    908  fa84		       ff		      .byte.b	255
-    909  fa85		       00		      .byte.b	0
-    910  fa86		       00		      .byte.b	0
-    911  fa87		       00		      .byte.b	0
-    912  fa88		       00		      .byte.b	0
-    913  fa89		       00		      .byte.b	0
-    914  fa8a		       00		      .byte.b	0
-    915  fa8b		       00		      .byte.b	0
-    916  fa8c		       00		      .byte.b	0
-    917  fa8d		       00		      .byte.b	0
-    918  fa8e		       00		      .byte.b	0
-    919  fa8f		       00		      .byte.b	0
-    920  fa90		       00		      .byte.b	0
-    921  fa91		       00		      .byte.b	0
-    922  fa92		       00		      .byte.b	0
-    923  fa93		       00		      .byte.b	0
-    924  fa94		       00		      .byte.b	0
-    925  fa95		       00		      .byte.b	0
-    926  fa96		       00		      .byte.b	0
-    927  fa97		       00		      .byte.b	0
-    928  fa98		       00		      .byte.b	0
-    929  fa99		       00		      .byte.b	0
-    930  fa9a		       00		      .byte.b	0
-    931  fa9b		       f1		      .byte.b	241
-    932  fa9c		       f1		      .byte.b	241
-    933  fa9d		       f1		      .byte.b	241
-    934  fa9e		       f1		      .byte.b	241
-    935  fa9f		       f1		      .byte.b	241
-    936  faa0		       f1		      .byte.b	241
-    937  faa1		       f1		      .byte.b	241
-    938  faa2		       f1		      .byte.b	241
-    939  faa3		       f1		      .byte.b	241
-    940  faa4		       00		      .byte.b	0
-    941  faa5		       00		      .byte.b	0
-    942  faa6		       00		      .byte.b	0
-    943  faa7		       00		      .byte.b	0
-    944  faa8		       00		      .byte.b	0
-    945  faa9		       00		      .byte.b	0
-    946  faaa		       00		      .byte.b	0
-    947  faab		       00		      .byte.b	0
-    948  faac		       00		      .byte.b	0
-    949  faad		       00		      .byte.b	0
-    950  faae		       00		      .byte.b	0
-    951  faaf		       00		      .byte.b	0
-    952  fab0		       00		      .byte.b	0
-    953  fab1		       00		      .byte.b	0
-    954  fab2		       00		      .byte.b	0
-    955  fab3		       00		      .byte.b	0
-    956  fab4		       00		      .byte.b	0
-    957  fab5		       00		      .byte.b	0
-    958  fab6		       00		      .byte.b	0
-    959  fab7		       00		      .byte.b	0
-    960  fab8		       00		      .byte.b	0
-    961  fab9		       00		      .byte.b	0
-    962  faba		       ff		      .byte.b	255
-    963  fabb		       ff		      .byte.b	255
-    964  fabc		       ff		      .byte.b	255
-    965  fabd		       ff		      .byte.b	255
-    966  fabe		       00		      .byte.b	0
-    967  fabf		       00		      .byte.b	0
-    968  fac0				   MainBoard_STRIP_5
-    969  fac0		       00		      .byte.b	0
-    970  fac1		       00		      .byte.b	0
-    971  fac2		       ff		      .byte.b	255
-    972  fac3		       ff		      .byte.b	255
-    973  fac4		       ff		      .byte.b	255
-    974  fac5		       80		      .byte.b	128
-    975  fac6		       80		      .byte.b	128
-    976  fac7		       80		      .byte.b	128
-    977  fac8		       80		      .byte.b	128
-    978  fac9		       80		      .byte.b	128
-    979  faca		       80		      .byte.b	128
-    980  facb		       80		      .byte.b	128
-    981  facc		       80		      .byte.b	128
-    982  facd		       80		      .byte.b	128
-    983  face		       80		      .byte.b	128
-    984  facf		       80		      .byte.b	128
-    985  fad0		       80		      .byte.b	128
-    986  fad1		       80		      .byte.b	128
-    987  fad2		       80		      .byte.b	128
-    988  fad3		       80		      .byte.b	128
-    989  fad4		       80		      .byte.b	128
-    990  fad5		       80		      .byte.b	128
-    991  fad6		       80		      .byte.b	128
-    992  fad7		       80		      .byte.b	128
-    993  fad8		       80		      .byte.b	128
-    994  fad9		       80		      .byte.b	128
-    995  fada		       80		      .byte.b	128
-    996  fadb		       80		      .byte.b	128
-    997  fadc		       80		      .byte.b	128
-    998  fadd		       80		      .byte.b	128
-    999  fade		       80		      .byte.b	128
-   1000  fadf		       8e		      .byte.b	142
-   1001  fae0		       8e		      .byte.b	142
-   1002  fae1		       8e		      .byte.b	142
-   1003  fae2		       8e		      .byte.b	142
-   1004  fae3		       80		      .byte.b	128
-   1005  fae4		       80		      .byte.b	128
-   1006  fae5		       80		      .byte.b	128
-   1007  fae6		       80		      .byte.b	128
-   1008  fae7		       80		      .byte.b	128
-   1009  fae8		       80		      .byte.b	128
-   1010  fae9		       80		      .byte.b	128
-   1011  faea		       80		      .byte.b	128
-   1012  faeb		       80		      .byte.b	128
-   1013  faec		       80		      .byte.b	128
-   1014  faed		       80		      .byte.b	128
-   1015  faee		       80		      .byte.b	128
-   1016  faef		       80		      .byte.b	128
-   1017  faf0		       80		      .byte.b	128
-   1018  faf1		       80		      .byte.b	128
-   1019  faf2		       80		      .byte.b	128
-   1020  faf3		       80		      .byte.b	128
-   1021  faf4		       80		      .byte.b	128
-   1022  faf5		       80		      .byte.b	128
-   1023  faf6		       80		      .byte.b	128
-   1024  faf7		       80		      .byte.b	128
-   1025  faf8		       80		      .byte.b	128
-   1026  faf9		       fe		      .byte.b	254
-   1027  fafa		       fe		      .byte.b	254
-   1028  fafb		       fe		      .byte.b	254
-   1029  fafc		       fe		      .byte.b	254
-   1030  fafd		       10		      .byte.b	16
-   1031  fafe		       10		      .byte.b	16
-   1032  faff		       10		      .byte.b	16
-   1033  fb00		       50		      .byte.b	80
-   1034  fb01		       10		      .byte.b	16
-   1035  fb02		       50		      .byte.b	80
-   1036  fb03		       10		      .byte.b	16
-   1037  fb04		       50		      .byte.b	80
-   1038  fb05		       10		      .byte.b	16
-   1039  fb06		       50		      .byte.b	80
-   1040  fb07		       10		      .byte.b	16
-   1041  fb08		       50		      .byte.b	80
-   1042  fb09		       10		      .byte.b	16
-   1043  fb0a		       50		      .byte.b	80
-   1044  fb0b		       10		      .byte.b	16
-   1045  fb0c		       50		      .byte.b	80
-   1046  fb0d		       10		      .byte.b	16
-   1047  fb0e		       50		      .byte.b	80
-   1048  fb0f		       10		      .byte.b	16
-   1049  fb10		       50		      .byte.b	80
-   1050  fb11		       10		      .byte.b	16
-   1051  fb12		       f1		      .byte.b	241
-   1052  fb13		       f1		      .byte.b	241
-   1053  fb14		       f1		      .byte.b	241
-   1054  fb15		       00		      .byte.b	0
-   1055  fb16		       00		      .byte.b	0
-   1056  fb17		       00		      .byte.b	0
-   1057  fb18		       00		      .byte.b	0
-   1058  fb19		       00		      .byte.b	0
-   1059  fb1a		       00		      .byte.b	0
-   1060  fb1b		       00		      .byte.b	0
-   1061  fb1c		       00		      .byte.b	0
-   1062  fb1d		       00		      .byte.b	0
-   1063  fb1e		       00		      .byte.b	0
-   1064  fb1f		       00		      .byte.b	0
-   1065  fb20		       00		      .byte.b	0
-   1066  fb21		       00		      .byte.b	0
-   1067  fb22		       00		      .byte.b	0
-   1068  fb23		       00		      .byte.b	0
-   1069  fb24		       00		      .byte.b	0
-   1070  fb25		       00		      .byte.b	0
-   1071  fb26		       00		      .byte.b	0
-   1072  fb27		       00		      .byte.b	0
-   1073  fb28		       00		      .byte.b	0
-   1074  fb29		       00		      .byte.b	0
-   1075  fb2a		       00		      .byte.b	0
-   1076  fb2b		       f1		      .byte.b	241
-   1077  fb2c		       f1		      .byte.b	241
-   1078  fb2d		       f0		      .byte.b	240
-   1079  fb2e		       10		      .byte.b	16
-   1080  fb2f		       50		      .byte.b	80
-   1081  fb30		       10		      .byte.b	16
-   1082  fb31		       50		      .byte.b	80
-   1083  fb32		       10		      .byte.b	16
-   1084  fb33		       50		      .byte.b	80
-   1085  fb34		       10		      .byte.b	16
-   1086  fb35		       50		      .byte.b	80
-   1087  fb36		       10		      .byte.b	16
-   1088  fb37		       50		      .byte.b	80
-   1089  fb38		       10		      .byte.b	16
-   1090  fb39		       50		      .byte.b	80
-   1091  fb3a		       10		      .byte.b	16
-   1092  fb3b		       50		      .byte.b	80
-   1093  fb3c		       10		      .byte.b	16
-   1094  fb3d		       50		      .byte.b	80
-   1095  fb3e		       10		      .byte.b	16
-   1096  fb3f		       50		      .byte.b	80
-   1097  fb40		       10		      .byte.b	16
-   1098  fb41		       f0		      .byte.b	240
-   1099  fb42		       f1		      .byte.b	241
-   1100  fb43		       f1		      .byte.b	241
-   1101  fb44		       f1		      .byte.b	241
-   1102  fb45		       80		      .byte.b	128
-   1103  fb46		       80		      .byte.b	128
-   1104  fb47		       80		      .byte.b	128
-   1105  fb48		       80		      .byte.b	128
-   1106  fb49		       80		      .byte.b	128
-   1107  fb4a		       80		      .byte.b	128
-   1108  fb4b		       80		      .byte.b	128
-   1109  fb4c		       80		      .byte.b	128
-   1110  fb4d		       80		      .byte.b	128
-   1111  fb4e		       80		      .byte.b	128
-   1112  fb4f		       80		      .byte.b	128
-   1113  fb50		       80		      .byte.b	128
-   1114  fb51		       80		      .byte.b	128
-   1115  fb52		       80		      .byte.b	128
-   1116  fb53		       80		      .byte.b	128
-   1117  fb54		       80		      .byte.b	128
-   1118  fb55		       80		      .byte.b	128
-   1119  fb56		       80		      .byte.b	128
-   1120  fb57		       80		      .byte.b	128
-   1121  fb58		       80		      .byte.b	128
-   1122  fb59		       80		      .byte.b	128
-   1123  fb5a		       80		      .byte.b	128
-   1124  fb5b		       8f		      .byte.b	143
-   1125  fb5c		       8f		      .byte.b	143
-   1126  fb5d		       8f		      .byte.b	143
-   1127  fb5e		       8f		      .byte.b	143
-   1128  fb5f		       8f		      .byte.b	143
-   1129  fb60		       8f		      .byte.b	143
-   1130  fb61		       8f		      .byte.b	143
-   1131  fb62		       8f		      .byte.b	143
-   1132  fb63		       8f		      .byte.b	143
-   1133  fb64		       80		      .byte.b	128
-   1134  fb65		       80		      .byte.b	128
-   1135  fb66		       80		      .byte.b	128
-   1136  fb67		       80		      .byte.b	128
-   1137  fb68		       80		      .byte.b	128
-   1138  fb69		       80		      .byte.b	128
-   1139  fb6a		       80		      .byte.b	128
-   1140  fb6b		       80		      .byte.b	128
-   1141  fb6c		       80		      .byte.b	128
-   1142  fb6d		       80		      .byte.b	128
-   1143  fb6e		       80		      .byte.b	128
-   1144  fb6f		       80		      .byte.b	128
-   1145  fb70		       80		      .byte.b	128
-   1146  fb71		       80		      .byte.b	128
-   1147  fb72		       80		      .byte.b	128
-   1148  fb73		       80		      .byte.b	128
-   1149  fb74		       80		      .byte.b	128
-   1150  fb75		       80		      .byte.b	128
-   1151  fb76		       80		      .byte.b	128
-   1152  fb77		       80		      .byte.b	128
-   1153  fb78		       80		      .byte.b	128
-   1154  fb79		       80		      .byte.b	128
-   1155  fb7a		       ff		      .byte.b	255
-   1156  fb7b		       ff		      .byte.b	255
-   1157  fb7c		       ff		      .byte.b	255
-   1158  fb7d		       ff		      .byte.b	255
-   1159  fb7e		       00		      .byte.b	0
-   1160  fb7f		       00		      .byte.b	0
-   1161  fb80							;end
-   1162  fb80
+    582  f940							;end
+    583  f940
 ------- FILE PacMan.asm
-   1295  fb80
-   1296  fb80							;===============================================================================
-   1297  fb80							; free space check before page boundry
-   1298  fb80							;===============================================================================
-   1299  fb80
- End of MainBoard.asm is:  $fb80
-   1300  fb80					      echo	"End of MainBoard.asm is: ", *
-   1301  fc00		       00 00 00 00*	      align	256
-   1302  fc00
-   1303  fc00							;==================================================================================
-   1304  fc00							; Bottom Data
-   1305  fc00							;==================================================================================
-   1306  fc00
-   1307  fc00				   BottomData
-   1308  fc00
-   1309  fc00							; 0
-   1310  fc00		       00		      .byte.b	%00000000
-   1311  fc01		       7e		      .byte.b	%01111110
-   1312  fc02		       7e		      .byte.b	%01111110
-   1313  fc03		       e7		      .byte.b	%11100111
-   1314  fc04		       e7		      .byte.b	%11100111
-   1315  fc05		       c3		      .byte.b	%11000011
-   1316  fc06		       c3		      .byte.b	%11000011
-   1317  fc07		       c3		      .byte.b	%11000011
-   1318  fc08		       c3		      .byte.b	%11000011
-   1319  fc09		       c3		      .byte.b	%11000011
-   1320  fc0a		       e7		      .byte.b	%11100111
-   1321  fc0b		       e7		      .byte.b	%11100111
-   1322  fc0c		       7e		      .byte.b	%01111110
-   1323  fc0d		       7e		      .byte.b	%01111110
-   1324  fc0e
-   1325  fc0e							; 1
-   1326  fc0e		       00		      .byte.b	%00000000
-   1327  fc0f		       ff		      .byte.b	%11111111
-   1328  fc10		       ff		      .byte.b	%11111111
-   1329  fc11		       1c		      .byte.b	%00011100
-   1330  fc12		       1c		      .byte.b	%00011100
-   1331  fc13		       1c		      .byte.b	%00011100
-   1332  fc14		       1c		      .byte.b	%00011100
-   1333  fc15		       1c		      .byte.b	%00011100
-   1334  fc16		       1c		      .byte.b	%00011100
-   1335  fc17		       1c		      .byte.b	%00011100
-   1336  fc18		       fc		      .byte.b	%11111100
-   1337  fc19		       7c		      .byte.b	%01111100
-   1338  fc1a		       3c		      .byte.b	%00111100
-   1339  fc1b		       1c		      .byte.b	%00011100
-   1340  fc1c
-   1341  fc1c							; 2
-   1342  fc1c		       00		      .byte.b	%00000000
-   1343  fc1d		       ff		      .byte.b	%11111111
-   1344  fc1e		       ff		      .byte.b	%11111111
-   1345  fc1f		       e0		      .byte.b	%11100000
-   1346  fc20		       e0		      .byte.b	%11100000
-   1347  fc21		       38		      .byte.b	%00111000
-   1348  fc22		       0e		      .byte.b	%00001110
-   1349  fc23		       07		      .byte.b	%00000111
-   1350  fc24		       03		      .byte.b	%00000011
-   1351  fc25		       c3		      .byte.b	%11000011
-   1352  fc26		       c3		      .byte.b	%11000011
-   1353  fc27		       e7		      .byte.b	%11100111
-   1354  fc28		       7e		      .byte.b	%01111110
-   1355  fc29		       3c		      .byte.b	%00111100
-   1356  fc2a
-   1357  fc2a							; 3
-   1358  fc2a		       00		      .byte.b	%00000000
-   1359  fc2b		       3c		      .byte.b	%00111100
-   1360  fc2c		       7e		      .byte.b	%01111110
-   1361  fc2d		       ef		      .byte.b	%11101111
-   1362  fc2e		       c7		      .byte.b	%11000111
-   1363  fc2f		       07		      .byte.b	%00000111
-   1364  fc30		       0e		      .byte.b	%00001110
-   1365  fc31		       1c		      .byte.b	%00011100
-   1366  fc32		       0e		      .byte.b	%00001110
-   1367  fc33		       07		      .byte.b	%00000111
-   1368  fc34		       c7		      .byte.b	%11000111
-   1369  fc35		       ef		      .byte.b	%11101111
-   1370  fc36		       7e		      .byte.b	%01111110
-   1371  fc37		       3c		      .byte.b	%00111100
-   1372  fc38
-   1373  fc38							; 4
-   1374  fc38		       00		      .byte.b	%00000000
-   1375  fc39		       06		      .byte.b	%00000110
-   1376  fc3a		       06		      .byte.b	%00000110
-   1377  fc3b		       ff		      .byte.b	%11111111
-   1378  fc3c		       ff		      .byte.b	%11111111
-   1379  fc3d		       c6		      .byte.b	%11000110
-   1380  fc3e		       c6		      .byte.b	%11000110
-   1381  fc3f		       66		      .byte.b	%01100110
-   1382  fc40		       66		      .byte.b	%01100110
-   1383  fc41		       36		      .byte.b	%00110110
-   1384  fc42		       36		      .byte.b	%00110110
-   1385  fc43		       1e		      .byte.b	%00011110
-   1386  fc44		       0e		      .byte.b	%00001110
-   1387  fc45		       0e		      .byte.b	%00001110
-   1388  fc46
-   1389  fc46							; 5
-   1390  fc46		       00		      .byte.b	%00000000
-   1391  fc47		       fc		      .byte.b	%11111100
-   1392  fc48		       fe		      .byte.b	%11111110
-   1393  fc49		       0f		      .byte.b	%00001111
-   1394  fc4a		       07		      .byte.b	%00000111
-   1395  fc4b		       07		      .byte.b	%00000111
-   1396  fc4c		       0f		      .byte.b	%00001111
-   1397  fc4d		       fe		      .byte.b	%11111110
-   1398  fc4e		       fc		      .byte.b	%11111100
-   1399  fc4f		       e0		      .byte.b	%11100000
-   1400  fc50		       e0		      .byte.b	%11100000
-   1401  fc51		       e0		      .byte.b	%11100000
-   1402  fc52		       ff		      .byte.b	%11111111
-   1403  fc53		       ff		      .byte.b	%11111111
-   1404  fc54
-   1405  fc54							; 6
-   1406  fc54		       00		      .byte.b	%00000000
-   1407  fc55		       3c		      .byte.b	%00111100
-   1408  fc56		       7e		      .byte.b	%01111110
-   1409  fc57		       e7		      .byte.b	%11100111
-   1410  fc58		       c3		      .byte.b	%11000011
-   1411  fc59		       c3		      .byte.b	%11000011
-   1412  fc5a		       e7		      .byte.b	%11100111
-   1413  fc5b		       fe		      .byte.b	%11111110
-   1414  fc5c		       fc		      .byte.b	%11111100
-   1415  fc5d		       c0		      .byte.b	%11000000
-   1416  fc5e		       c3		      .byte.b	%11000011
-   1417  fc5f		       e7		      .byte.b	%11100111
-   1418  fc60		       ff		      .byte.b	%11111111
-   1419  fc61		       7e		      .byte.b	%01111110
-   1420  fc62
-   1421  fc62							; 7
-   1422  fc62		       00		      .byte.b	%00000000
-   1423  fc63		       18		      .byte.b	%00011000
-   1424  fc64		       18		      .byte.b	%00011000
-   1425  fc65		       18		      .byte.b	%00011000
-   1426  fc66		       18		      .byte.b	%00011000
-   1427  fc67		       18		      .byte.b	%00011000
-   1428  fc68		       0c		      .byte.b	%00001100
-   1429  fc69		       0c		      .byte.b	%00001100
-   1430  fc6a		       0c		      .byte.b	%00001100
-   1431  fc6b		       c6		      .byte.b	%11000110
-   1432  fc6c		       c7		      .byte.b	%11000111
-   1433  fc6d		       ff		      .byte.b	%11111111
-   1434  fc6e		       ff		      .byte.b	%11111111
-   1435  fc6f		       ff		      .byte.b	%11111111
-   1436  fc70
-   1437  fc70							; 8
-   1438  fc70		       00		      .byte.b	%00000000
-   1439  fc71		       3c		      .byte.b	%00111100
-   1440  fc72		       7e		      .byte.b	%01111110
-   1441  fc73		       e7		      .byte.b	%11100111
-   1442  fc74		       c3		      .byte.b	%11000011
-   1443  fc75		       c3		      .byte.b	%11000011
-   1444  fc76		       e7		      .byte.b	%11100111
-   1445  fc77		       7e		      .byte.b	%01111110
-   1446  fc78		       3c		      .byte.b	%00111100
-   1447  fc79		       66		      .byte.b	%01100110
-   1448  fc7a		       c3		      .byte.b	%11000011
-   1449  fc7b		       e7		      .byte.b	%11100111
-   1450  fc7c		       7e		      .byte.b	%01111110
-   1451  fc7d		       3c		      .byte.b	%00111100
-   1452  fc7e
-   1453  fc7e							; 9
-   1454  fc7e		       00		      .byte.b	%00000000
-   1455  fc7f		       3c		      .byte.b	%00111100
-   1456  fc80		       7e		      .byte.b	%01111110
-   1457  fc81		       e7		      .byte.b	%11100111
-   1458  fc82		       c3		      .byte.b	%11000011
-   1459  fc83		       03		      .byte.b	%00000011
-   1460  fc84		       3f		      .byte.b	%00111111
-   1461  fc85		       7f		      .byte.b	%01111111
-   1462  fc86		       e7		      .byte.b	%11100111
-   1463  fc87		       c3		      .byte.b	%11000011
-   1464  fc88		       c3		      .byte.b	%11000011
-   1465  fc89		       e7		      .byte.b	%11100111
-   1466  fc8a		       7e		      .byte.b	%01111110
-   1467  fc8b		       3c		      .byte.b	%00111100
-   1468  fc8c		       00		      .byte.b	%00000000
-   1469  fc8d
-   1470  fc8d							;==================================================================================
-   1471  fc8d							; Interrupt Routines
-   1472  fc8d							;==================================================================================
-   1473  fc8d
-   1474  10000 ????				       SEG	Interrupt
-   1475  fffa					      ORG	$FFFA
-   1476  fffa
-   1477  fffa				   InterruptVectors
-   1478  fffa		       00 f0		      .word.w	Reset
-   1479  fffc		       00 f0		      .word.w	Reset
-   1480  fffe		       00 f0		      .word.w	Reset
-   1481  10000
-   1482  10000					       END
+   1656  f940
+   1657  f940							;===============================================================================
+   1658  f940							; free space check before page boundry
+   1659  f940							;===============================================================================
+   1660  f940
+ End of MainBoard.asm is:  $f940
+   1661  f940					      echo	"End of MainBoard.asm is: ", *
+   1662  fa00		       00 00 00 00*	      align	256
+   1663  fa00
+   1664  fa00							;==================================================================================
+   1665  fa00							; Bottom Data
+   1666  fa00							;==================================================================================
+   1667  fa00
+   1668  fa00				   BottomData
+   1669  fa00
+   1670  fa00							; 0
+   1671  fa00		       00		      .byte.b	%00000000
+   1672  fa01		       7e		      .byte.b	%01111110
+   1673  fa02		       7e		      .byte.b	%01111110
+   1674  fa03		       e7		      .byte.b	%11100111
+   1675  fa04		       e7		      .byte.b	%11100111
+   1676  fa05		       c3		      .byte.b	%11000011
+   1677  fa06		       c3		      .byte.b	%11000011
+   1678  fa07		       c3		      .byte.b	%11000011
+   1679  fa08		       c3		      .byte.b	%11000011
+   1680  fa09		       c3		      .byte.b	%11000011
+   1681  fa0a		       e7		      .byte.b	%11100111
+   1682  fa0b		       e7		      .byte.b	%11100111
+   1683  fa0c		       7e		      .byte.b	%01111110
+   1684  fa0d		       7e		      .byte.b	%01111110
+   1685  fa0e
+   1686  fa0e							; 1
+   1687  fa0e		       00		      .byte.b	%00000000
+   1688  fa0f		       ff		      .byte.b	%11111111
+   1689  fa10		       ff		      .byte.b	%11111111
+   1690  fa11		       1c		      .byte.b	%00011100
+   1691  fa12		       1c		      .byte.b	%00011100
+   1692  fa13		       1c		      .byte.b	%00011100
+   1693  fa14		       1c		      .byte.b	%00011100
+   1694  fa15		       1c		      .byte.b	%00011100
+   1695  fa16		       1c		      .byte.b	%00011100
+   1696  fa17		       1c		      .byte.b	%00011100
+   1697  fa18		       fc		      .byte.b	%11111100
+   1698  fa19		       7c		      .byte.b	%01111100
+   1699  fa1a		       3c		      .byte.b	%00111100
+   1700  fa1b		       1c		      .byte.b	%00011100
+   1701  fa1c
+   1702  fa1c							; 2
+   1703  fa1c		       00		      .byte.b	%00000000
+   1704  fa1d		       ff		      .byte.b	%11111111
+   1705  fa1e		       ff		      .byte.b	%11111111
+   1706  fa1f		       e0		      .byte.b	%11100000
+   1707  fa20		       e0		      .byte.b	%11100000
+   1708  fa21		       38		      .byte.b	%00111000
+   1709  fa22		       0e		      .byte.b	%00001110
+   1710  fa23		       07		      .byte.b	%00000111
+   1711  fa24		       03		      .byte.b	%00000011
+   1712  fa25		       c3		      .byte.b	%11000011
+   1713  fa26		       c3		      .byte.b	%11000011
+   1714  fa27		       e7		      .byte.b	%11100111
+   1715  fa28		       7e		      .byte.b	%01111110
+   1716  fa29		       3c		      .byte.b	%00111100
+   1717  fa2a
+   1718  fa2a							; 3
+   1719  fa2a		       00		      .byte.b	%00000000
+   1720  fa2b		       3c		      .byte.b	%00111100
+   1721  fa2c		       7e		      .byte.b	%01111110
+   1722  fa2d		       ef		      .byte.b	%11101111
+   1723  fa2e		       c7		      .byte.b	%11000111
+   1724  fa2f		       07		      .byte.b	%00000111
+   1725  fa30		       0e		      .byte.b	%00001110
+   1726  fa31		       1c		      .byte.b	%00011100
+   1727  fa32		       0e		      .byte.b	%00001110
+   1728  fa33		       07		      .byte.b	%00000111
+   1729  fa34		       c7		      .byte.b	%11000111
+   1730  fa35		       ef		      .byte.b	%11101111
+   1731  fa36		       7e		      .byte.b	%01111110
+   1732  fa37		       3c		      .byte.b	%00111100
+   1733  fa38
+   1734  fa38							; 4
+   1735  fa38		       00		      .byte.b	%00000000
+   1736  fa39		       06		      .byte.b	%00000110
+   1737  fa3a		       06		      .byte.b	%00000110
+   1738  fa3b		       ff		      .byte.b	%11111111
+   1739  fa3c		       ff		      .byte.b	%11111111
+   1740  fa3d		       c6		      .byte.b	%11000110
+   1741  fa3e		       c6		      .byte.b	%11000110
+   1742  fa3f		       66		      .byte.b	%01100110
+   1743  fa40		       66		      .byte.b	%01100110
+   1744  fa41		       36		      .byte.b	%00110110
+   1745  fa42		       36		      .byte.b	%00110110
+   1746  fa43		       1e		      .byte.b	%00011110
+   1747  fa44		       0e		      .byte.b	%00001110
+   1748  fa45		       0e		      .byte.b	%00001110
+   1749  fa46
+   1750  fa46							; 5
+   1751  fa46		       00		      .byte.b	%00000000
+   1752  fa47		       fc		      .byte.b	%11111100
+   1753  fa48		       fe		      .byte.b	%11111110
+   1754  fa49		       0f		      .byte.b	%00001111
+   1755  fa4a		       07		      .byte.b	%00000111
+   1756  fa4b		       07		      .byte.b	%00000111
+   1757  fa4c		       0f		      .byte.b	%00001111
+   1758  fa4d		       fe		      .byte.b	%11111110
+   1759  fa4e		       fc		      .byte.b	%11111100
+   1760  fa4f		       e0		      .byte.b	%11100000
+   1761  fa50		       e0		      .byte.b	%11100000
+   1762  fa51		       e0		      .byte.b	%11100000
+   1763  fa52		       ff		      .byte.b	%11111111
+   1764  fa53		       ff		      .byte.b	%11111111
+   1765  fa54
+   1766  fa54							; 6
+   1767  fa54		       00		      .byte.b	%00000000
+   1768  fa55		       3c		      .byte.b	%00111100
+   1769  fa56		       7e		      .byte.b	%01111110
+   1770  fa57		       e7		      .byte.b	%11100111
+   1771  fa58		       c3		      .byte.b	%11000011
+   1772  fa59		       c3		      .byte.b	%11000011
+   1773  fa5a		       e7		      .byte.b	%11100111
+   1774  fa5b		       fe		      .byte.b	%11111110
+   1775  fa5c		       fc		      .byte.b	%11111100
+   1776  fa5d		       c0		      .byte.b	%11000000
+   1777  fa5e		       c3		      .byte.b	%11000011
+   1778  fa5f		       e7		      .byte.b	%11100111
+   1779  fa60		       ff		      .byte.b	%11111111
+   1780  fa61		       7e		      .byte.b	%01111110
+   1781  fa62
+   1782  fa62							; 7
+   1783  fa62		       00		      .byte.b	%00000000
+   1784  fa63		       18		      .byte.b	%00011000
+   1785  fa64		       18		      .byte.b	%00011000
+   1786  fa65		       18		      .byte.b	%00011000
+   1787  fa66		       18		      .byte.b	%00011000
+   1788  fa67		       18		      .byte.b	%00011000
+   1789  fa68		       0c		      .byte.b	%00001100
+   1790  fa69		       0c		      .byte.b	%00001100
+   1791  fa6a		       0c		      .byte.b	%00001100
+   1792  fa6b		       c6		      .byte.b	%11000110
+   1793  fa6c		       c7		      .byte.b	%11000111
+   1794  fa6d		       ff		      .byte.b	%11111111
+   1795  fa6e		       ff		      .byte.b	%11111111
+   1796  fa6f		       ff		      .byte.b	%11111111
+   1797  fa70
+   1798  fa70							; 8
+   1799  fa70		       00		      .byte.b	%00000000
+   1800  fa71		       3c		      .byte.b	%00111100
+   1801  fa72		       7e		      .byte.b	%01111110
+   1802  fa73		       e7		      .byte.b	%11100111
+   1803  fa74		       c3		      .byte.b	%11000011
+   1804  fa75		       c3		      .byte.b	%11000011
+   1805  fa76		       e7		      .byte.b	%11100111
+   1806  fa77		       7e		      .byte.b	%01111110
+   1807  fa78		       3c		      .byte.b	%00111100
+   1808  fa79		       66		      .byte.b	%01100110
+   1809  fa7a		       c3		      .byte.b	%11000011
+   1810  fa7b		       e7		      .byte.b	%11100111
+   1811  fa7c		       7e		      .byte.b	%01111110
+   1812  fa7d		       3c		      .byte.b	%00111100
+   1813  fa7e
+   1814  fa7e							; 9
+   1815  fa7e		       00		      .byte.b	%00000000
+   1816  fa7f		       3c		      .byte.b	%00111100
+   1817  fa80		       7e		      .byte.b	%01111110
+   1818  fa81		       e7		      .byte.b	%11100111
+   1819  fa82		       c3		      .byte.b	%11000011
+   1820  fa83		       03		      .byte.b	%00000011
+   1821  fa84		       3f		      .byte.b	%00111111
+   1822  fa85		       7f		      .byte.b	%01111111
+   1823  fa86		       e7		      .byte.b	%11100111
+   1824  fa87		       c3		      .byte.b	%11000011
+   1825  fa88		       c3		      .byte.b	%11000011
+   1826  fa89		       e7		      .byte.b	%11100111
+   1827  fa8a		       7e		      .byte.b	%01111110
+   1828  fa8b		       3c		      .byte.b	%00111100
+   1829  fa8c
+   1830  fa8c							;==================================================================================
+   1831  fa8c							; Interrupt Routines
+   1832  fa8c							;==================================================================================
+   1833  fa8c
+   1834  10000 ????				       SEG	Interrupt
+   1835  fffa					      ORG	$FFFA
+   1836  fffa
+   1837  fffa				   InterruptVectors
+   1838  fffa		       00 f0		      .word.w	Reset
+   1839  fffc		       00 f0		      .word.w	Reset
+   1840  fffe		       00 f0		      .word.w	Reset
+   1841  10000
+   1842  10000					       END

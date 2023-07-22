@@ -7,7 +7,8 @@
 ;==================================================================================
     
 SPRITE_HEIGHT = 18
-TIMER_LIMIT = 5
+TIMER_LIMIT1 = 5
+TIMER_LIMIT2 = 20
 
 ;==================================================================================
 ; Program Variables
@@ -49,10 +50,14 @@ ScoreDisplayBufferHundreds ds 1
 ScoreDisplayBufferTens ds 1
 ScoreDisplayBufferOnes ds 1
 
-TimerCounter ds 1
+TimerCounter5 ds 1
+TimerCounter20 ds 1
 
 PlayerReflectedBuffer ds 1
 GhostReflectedBuffer ds 1
+
+LifeCount ds 1
+IsPlayingDeathAnimation ds 1
 
 ;==================================================================================
 ; Program Initialization
@@ -166,8 +171,8 @@ MainFrameLoop
     LDA CheckLineBytes,x
     BEQ DoNotDrawWafer
 
-DoDrawWafer
-    ; Verify if water is picked up
+CheckIfWaferCollected
+    ; Verify if wafer is picked up
     LDY WaferXPosIndex
     LDA WaferArray,y
     
@@ -190,9 +195,9 @@ AfterDrawing
     SEC                     ; 2
     SBC SpriteYPos          ; 3
 	ADC #SPRITE_HEIGHT      ; 2
+    BCC SkipDrawingP0       ; 3
 
     ; Load P0 Sprite Data
-    BCC SkipDrawingP0       ; 3
     TAY                     ; 3
     LDA (SpriteAddrPtr),y   ; 5
     STA GRP0                ; 3
@@ -242,9 +247,9 @@ DidntGetWafer
     SEC                     ; 2
     SBC GhostSpriteYPos     ; 3
 	ADC #SPRITE_HEIGHT      ; 2
-
-    ; Load Ghost Sprite Data
     BCC SkipGhostDrawing    ; 3
+    
+    ; Load Ghost Sprite Data
     TAY                     ; 3
     LDA (SpriteGhostAddrPtr),y   ; 5
     STA GRP1               ; 3
@@ -279,13 +284,26 @@ Overscan
     STA REFP1
 
     LDA #$0E
-    STA COLUP0
     STA COLUP1
 
     LDA #%011
-    STA NUSIZ0
+    
+    ; Triplicate P1 (Score)
+    STA NUSIZ1
 
-    STA RESP0
+    ; Select Ammount of Icons According to LifeCount
+    LDY LifeCount
+
+    ; Select position of Score
+    STA RESP1
+
+    LDA LivesNUSIZ0LookUp,y
+    STA NUSIZ0
+    
+    ; Calculate Hundreds Offset
+    LDX ScoreHundreds
+    LDA MultBy14,x
+    STA HundredsOffset
     
     ; Calculate Tens Offset
     LDX ScoreTens
@@ -296,41 +314,59 @@ Overscan
     LDX ScoreOnes
     LDA MultBy14,x
     STA OnesOffset
+
+    STA WSYNC
     
-    ;STA RESP1
+    ; Select position of Lives
+    STA RESP0
 
     LDX #29
 OverscanLoop
     
     ; Is it time to draw?
-    CPX #15
-    BCC SmallerThan17
+    CPX #16
+    BCC SmallerThan16
     
-BiggerThan17
+BiggerThan16
     ; Time to draw
-    TXA
-    SBC #15
+    
+    ; Draw Lives
+    LDA SpriteLifeData,x
+    STA GRP0
+    
+    ; Prepare draw bits for hundreds
     CLC
+    TXA
+    ADC HundredsOffset
+    TAY
+    LDA BottomData,y
+    STA GRP1 
+    
+    ; Prepare draw bits for ones
+    CLC
+    TXA
     ADC OnesOffset
     TAY
     LDA BottomData,y
     STA ScoreDisplayBufferOnes
     
-    TXA
-    SBC #15
+    ; Prepare draw bits for tens
     CLC
+    TXA
     ADC TensOffset
     TAY
     LDA BottomData,y
-    STA ScoreDisplayBufferTens  
+   
+    ; Draw Tens
+    STA GRP1
     
-    STA GRP0
+    ; Draw Ones
     LDA ScoreDisplayBufferOnes
-    STA GRP0
+    STA GRP1
     
-SmallerThan17    
-    STA WSYNC
+SmallerThan16    
     DEX
+    STA WSYNC
     BNE OverscanLoop
 
     ; Clear Player Registers
@@ -338,9 +374,10 @@ SmallerThan17
     STA GRP0
     STA GRP1
 
-    ; Return NUSIZ0
+    ; Return NUSIZ0 and NUSIZ1
     LDA #%100000
     STA NUSIZ0
+    STA NUSIZ1
 
     ; Return P0 Register Reflection Value
     LDA PlayerReflectedBuffer
@@ -350,9 +387,7 @@ SmallerThan17
     LDA GhostReflectedBuffer
     STA REFP1
 
-    ; Return P0 and P1 colors
-    LDA #$1E
-    STA COLUP0
+    ; Return P1 color
     LDA #$58
     STA COLUP1
 
@@ -394,12 +429,17 @@ InitVariables
     ; SpriteGhostXPos and YPos
     LDA #77
     STA GhostSpriteXPos
-    LDA #130
+    LDA #140
     STA GhostSpriteYPos
+
+    ; LifeCount
+    LDA #3
+    STA LifeCount
 
     ; Timer Counter
     LDA #0
-    STA TimerCounter
+    STA TimerCounter5
+    STA TimerCounter20
     
     ; Score
     STA ScoreTens
@@ -410,13 +450,16 @@ InitVariables
 
     ; Set SpriteAnimationIndex
     STA SpriteAnimationIndex
-    STA IsFrameGoingUp
 
     ; Set P0 and P1 Delays
     STA VDELP0
 
     ; Set Wafer XPos Index
     STA WaferXPosIndex
+
+    ; Set IsFrameGoingUp
+    LDA #1
+    STA IsFrameGoingUp
 
     ; PacmanSpriteDataPointer
     LDA #<Sprite0Data
@@ -622,11 +665,14 @@ RetWafer0
 ;==================================================================================
 
 UpdateEntities
-    ; Check Player Collision
-    JSR CheckPlayerCollision
+    ; Check Player Collision with PF
+    JSR CheckPlayerCollisionPF
 
     ; Update Sprite Pos According to Velocity Mask
     JSR UpdatePlayerPosition
+
+    ; Check Player Collision with Ghosts
+    JSR CheckPlayerCollisionGhosts
 
     ; Remove Collisions After Checks
     STA CXCLR
@@ -645,6 +691,10 @@ UpdateEntities
 
     ; Update Wafer XPos Index
     JSR UpdateWaferIndex
+
+    ; Check Game Over
+    LDA LifeCount
+    BEQ HandleGameOver
 
     RTS
 
@@ -669,10 +719,40 @@ ReturnWaferIndex
     RTS
 
 ;==================================================================================
-; CheckPlayerCollision - Verify for Player Collision with PF and Update Velocity Mask
+; CheckPlayerCollisionGhosts - Verify for Player Collision with Ghosts
 ;==================================================================================
 
-CheckPlayerCollision
+CheckPlayerCollisionGhosts
+    
+    ; Check if death animation is playing
+    LDA IsPlayingDeathAnimation
+    BNE NoP0P1Collision
+    
+    ; Check Collision
+    LDA CXPPMM
+    AND #%10000000
+    BEQ NoP0P1Collision
+
+P0P1Collision
+    ; Reset Player Velocity
+    LDA #0
+    STA PlayerVelocityMask
+
+    ; Set Animation Frame to 4 and IsPlayingDeathAnimation
+    LDA #4
+    STA SpriteAnimationIndex
+
+    LDA #1
+    STA IsPlayingDeathAnimation
+
+NoP0P1Collision
+    RTS
+
+;==================================================================================
+; CheckPlayerCollisionPF - Verify for Player Collision with PF and Update Velocity Mask
+;==================================================================================
+
+CheckPlayerCollisionPF
     ; Verify P0PF Collision Bit
     LDA CXP0FB
     AND #%10000000
@@ -840,16 +920,21 @@ UpdatePlayerPositionRet
 ;==================================================================================
 
 ChangeAnimationFrame
-    ; Verify Counter
-    LDA TimerCounter
-    BNE DontChangeFrame
+    ; Verify If Is Death Animation
+    LDA IsPlayingDeathAnimation
+    BNE FrameIsDeath
     
+FrameNotDeath
+    ; Verify TimerCounter5
+    LDA TimerCounter5
+    BNE DontChangeFrame
+
     ; Load Current Frame Index
     LDY SpriteAnimationIndex
-    
+
     ; Verify Next Frame
     LDX IsFrameGoingUp
-    BEQ FrameIsGoingUp
+    BNE FrameIsGoingUp
 
 FrameIsGoingDown
     DEY
@@ -859,7 +944,7 @@ FrameIsGoingUp
     INY
 
 FrameChanged
-    ; Check if Index is Either 0 or 2
+    ; Check if Index is Either 0 or 3
     STY SpriteAnimationIndex
     CPY #3
     BEQ ChangeDirection
@@ -873,6 +958,41 @@ ChangeDirection
     LDA IsFrameGoingUp
     EOR #1
     STA IsFrameGoingUp
+    JMP FrameChangeReturn
+    
+FrameIsDeath
+    ; Verify TimerCounter20
+    LDA TimerCounter20
+    BNE DontChangeFrame
+
+CheckIfLastDeathFrame
+    ; Check if Frame is 9 (Last Death Frame)
+    LDA SpriteAnimationIndex
+    CMP #9
+    BNE ChangeDeathFrame
+
+    ; End Death Animation
+    LDA #0
+    STA IsPlayingDeathAnimation
+    STA SpriteAnimationIndex
+
+    LDA #1
+    STA IsFrameGoingUp
+
+    ; Reset Player Coordinates
+    LDA #80
+    STA SpriteXPos
+    LDA #107
+    STA SpriteYPos
+
+    ; Take One Life
+    DEC LifeCount
+
+    JMP FrameChangeReturn
+
+ChangeDeathFrame
+    INC SpriteAnimationIndex
+    JMP FrameChangeReturn
     
 DontRestartFrame
 DontChangeFrame
@@ -885,8 +1005,8 @@ FrameChangeReturn
 
 ApplyAnimationFrame
     ; Check Counter
-    LDA TimerCounter
-    BNE ApplyAnimationFrameRet
+    LDA TimerCounter5
+    BNE AnimationFrameRet
     
     LDA SpriteAnimationIndex
     BEQ Animation0
@@ -896,6 +1016,21 @@ ApplyAnimationFrame
     BEQ Animation2
     CMP #3
     BEQ Animation3
+    CMP #4
+    BEQ Animation4
+    CMP #5
+    BEQ Animation5
+    CMP #6
+    BEQ Animation6
+    CMP #7
+    BEQ Animation7
+    CMP #8
+    BEQ Animation8
+    CMP #9
+    BEQ Animation9
+
+AnimationFrameRet
+    JMP ApplyAnimationFrameRet
     
 Animation0
     LDA #<Sprite0Data
@@ -923,6 +1058,48 @@ Animation3
     STA SpriteAddrPtr
     LDA #>Sprite3Data
     STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation4
+    LDA #<Sprite4Data
+    STA SpriteAddrPtr
+    LDA #>Sprite4Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation5
+    LDA #<Sprite5Data
+    STA SpriteAddrPtr
+    LDA #>Sprite5Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation6
+    LDA #<Sprite6Data
+    STA SpriteAddrPtr
+    LDA #>Sprite6Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation7
+    LDA #<Sprite7Data
+    STA SpriteAddrPtr
+    LDA #>Sprite7Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation8
+    LDA #<Sprite8Data
+    STA SpriteAddrPtr
+    LDA #>Sprite8Data
+    STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation9
+    LDA #<Sprite9Data
+    STA SpriteAddrPtr
+    LDA #>Sprite9Data
+    STA SpriteAddrPtr+1
 
 ApplyAnimationFrameRet
     RTS
@@ -932,6 +1109,9 @@ ApplyAnimationFrameRet
 ;==================================================================================
 
 GetControllerInputs
+    LDA IsPlayingDeathAnimation
+    BNE ControllerRet
+    
     LDX SWCHA
     
     ; Check Right Input
@@ -1041,21 +1221,35 @@ ControllerRetGhost
     RTS
 
 ;==================================================================================
-; UpdateTimer
+; UpdateTimer - Updates All Timers
 ;==================================================================================
 
 UpdateTimer
-    LDA TimerCounter
+UpdateTimer5
+    LDA TimerCounter5
     CMP #0
-    BNE DidntReachLimit
+    BNE DidntReachLimitTimer5
 
-ReachedLimit
-    LDA #TIMER_LIMIT
-    STA TimerCounter
+ReachedLimitTimer5
+    LDA #TIMER_LIMIT1
+    STA TimerCounter5
+    JMP UpdateTimer20
+
+DidntReachLimitTimer5
+    DEC TimerCounter5
+
+UpdateTimer20
+    LDA TimerCounter20
+    CMP #0
+    BNE DidntReachLimitTimer20
+
+ReachedLimitTimer20
+    LDA #TIMER_LIMIT2
+    STA TimerCounter20
     JMP TimerRet
 
-DidntReachLimit
-    DEC TimerCounter
+DidntReachLimitTimer20
+    DEC TimerCounter20
     
 TimerRet
     RTS
@@ -1093,6 +1287,17 @@ TensReached10
     ; Reset Tens
     LDX #0
     STX ScoreTens
+    INC ScoreHundreds
+    
+    ; Check if Hundreds reached 10
+    LDX ScoreHundreds
+    CPX #10
+    BNE NotYet10
+
+HundredsReached10
+    ; Reset Hundreds
+    LDX #0
+    STX ScoreHundreds
 
 DidntPickUpWafer
 NotYet10
@@ -1100,6 +1305,42 @@ NotYet10
     LDA #0
     STA PickedUpWaferBuffer
     
+    RTS
+
+;==================================================================================
+; HandleGameOver
+;==================================================================================
+
+HandleGameOver
+    JSR HandleVSync
+    JSR HandleVBlank
+    JSR ShowGameOverScreen
+    JSR GameOverOverscan
+    JMP HandleGameOver
+
+;==================================================================================
+; ShowGameOverScreen
+;==================================================================================
+
+ShowGameOverScreen
+    LDA #0                 
+    STA VBLANK
+
+    LDX #191
+    STA WSYNC
+GameOverLoop
+    ; Display Game Over Message
+    LDA GAME_OVER_PF_00
+    STA PF0
+    LDA GAME_OVER_PF_01
+    STA PF1
+    LDA GAME_OVER_PF_02
+    STA PF2
+
+    DEX
+    STA WSYNC
+    BNE GameOverLoop
+
     RTS
 
 ;==================================================================================
@@ -1128,7 +1369,14 @@ FindWaferLookUp
 ;==================================================================================
 
 MultBy14
-    .byte 0,14,28,42,56,70,84,98,112,126,140
+    .byte -16,-2,12,26,40,54,68,82,96,110,124
+
+;==================================================================================
+; Lives Icons NUSIZ0 Look up table
+;==================================================================================
+
+LivesNUSIZ0LookUp
+    .byte 0,0,%001,%011
 
 ;==================================================================================
 ; CheckLineBytes
@@ -1156,11 +1404,6 @@ CheckLineBytes
     .byte 0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0
 
-;==================================================================================
-; Control Page Boundry
-;==================================================================================
-
-
 ;===============================================================================
 ; free space check before page boundry
 ;===============================================================================
@@ -1173,7 +1416,7 @@ CheckLineBytes
 ;==================================================================================
 
 Sprite0Data
-; Frame 0
+    ; Frame 0
     .byte #%00000000
     .byte #%00000000
 	.byte #%01111110
@@ -1194,7 +1437,7 @@ Sprite0Data
     .byte #%00000000
 
 Sprite1Data
-	; Frame 0
+	; Frame 1
     .byte #%00000000
     .byte #%00000000
 	.byte #%01111110
@@ -1215,7 +1458,7 @@ Sprite1Data
     .byte #%00000000
 
 Sprite2Data
-    ; Frame 1
+    ; Frame 2
     .byte #%00000000
     .byte #%00000000
 	.byte #%01111110
@@ -1236,7 +1479,7 @@ Sprite2Data
     .byte #%00000000 
 
 Sprite3Data
-    ; Frame 2
+    ; Frame 3
     .byte #%00000000
     .byte #%00000000
 	.byte #%01111110
@@ -1253,6 +1496,128 @@ Sprite3Data
     .byte #%11111111
     .byte #%01111110
     .byte #%01111110
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite4Data
+    ; Frame 4
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00011110
+    .byte #%00011110
+	.byte #%00011111
+    .byte #%00011111
+	.byte #%00001111
+    .byte #%00001111
+	.byte #%00000111
+    .byte #%00000111
+    .byte #%00001111
+    .byte #%00001111
+    .byte #%00011111
+    .byte #%00011111
+    .byte #%00011110
+    .byte #%00011110
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite5Data
+    ; Frame 5
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000010
+    .byte #%00000010
+	.byte #%00000111
+    .byte #%00000111
+	.byte #%00000111
+    .byte #%00000111
+	.byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000010
+    .byte #%00000010
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite6Data
+    ; Frame 6
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000011
+	.byte #%00000011
+    .byte #%00000111
+	.byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000011
+    .byte #%00000011
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite7Data
+    ; Frame 7
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000111
+	.byte #%00000111
+    .byte #%00000111
+    .byte #%00000111
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite8Data
+    ; Frame 8
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%10000001
+    .byte #%10000001
+	.byte #%01000100
+    .byte #%01000100
+    .byte #%00111000
+    .byte #%00111000
+    .byte #%01000110
+    .byte #%01000110
+    .byte #%10000001
+    .byte #%10000001
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+
+Sprite9Data
+    ; Frame 9
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00010000
+    .byte #%00010000
+	.byte #%10000001
+    .byte #%10000001
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%10000000
+    .byte #%10000000
+    .byte #%00000001
+    .byte #%00000001
+    .byte #%00000000
+    .byte #%00000000
 	.byte #%00000000
     .byte #%00000000
 
@@ -1278,6 +1643,42 @@ SpriteGhostData
     .byte #%01111110
     .byte #%01111110
     .byte #%00000000
+    .byte #%00000000
+
+;==================================================================================
+; Sprite Data - Lives
+;==================================================================================
+
+SpriteLifeData
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00111100
+    .byte #%01111110
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%01111110
+    .byte #%00111100
     .byte #%00000000
 
 ;==================================================================================
@@ -1465,7 +1866,6 @@ BottomData
     .byte %11100111
     .byte %01111110
     .byte %00111100
-    .byte %00000000
 
 ;==================================================================================
 ; Interrupt Routines
