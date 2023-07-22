@@ -20,17 +20,19 @@ TIMER_LIMIT2 = 20
 PS_temp ds 1
 
 SpriteAddrPtr ds 2
-SpriteXPos ds 1
 SpriteYPos ds 1
 LastSpriteXPos ds 1
 LastSpriteYPos ds 1
 PlayerVelocityMask ds 1
 
 SpriteGhostAddrPtr ds 2
+
+SpriteXPos ds 1
 GhostSpriteXPos ds 1
+CurWaferXPos0 ds 1
+
 GhostSpriteYPos ds 1
 
-CurWaferXPos0 ds 1
 WaferXPosIndex ds 1
 WaferArray ds 6
 PickedUpWaferBuffer ds 1
@@ -57,7 +59,13 @@ PlayerReflectedBuffer ds 1
 GhostReflectedBuffer ds 1
 
 LifeCount ds 1
-IsPlayingDeathAnimation ds 1
+WaferCount ds 1
+
+WasButtonPressed ds 1
+
+; Game State - 0 = PlayingGame; 1 = PlayingDeathAnimation; 2 = GamePaused;
+; 3 = GameOver; 4 = PlayingWinningScreen
+GameState ds 1
 
 ;==================================================================================
 ; Program Initialization
@@ -126,7 +134,8 @@ HandleVBlank
     STA VBLANK
 
     ; Processing Tasks
-    JSR GetControllerInputs
+    JSR GetControllerInputsDirectional
+    JSR GetControllerInputsButton
     JSR GetController2InputsDEBUG
     JSR UpdateEntities
     
@@ -145,12 +154,8 @@ MainKernel
     LDA #0                 
     STA VBLANK              
     
-    ; Position Player and Ghost According to XPos
+    ; Position Player, Ghost and Wafer According to XPos
     JSR PositionSpriteX
-    JSR PositionGhostSpriteX
-    
-    ; Position Wafer in XPos
-    JSR PositionWaferX0
 
     LDX #191               
     STA WSYNC
@@ -436,30 +441,30 @@ InitVariables
     LDA #3
     STA LifeCount
 
-    ; Timer Counter
-    LDA #0
-    STA TimerCounter5
-    STA TimerCounter20
-    
-    ; Score
-    STA ScoreTens
-    STA ScoreOnes
-
-    ; Set Controller Inputs
-    STA SWACNT
-
     ; Set SpriteAnimationIndex
     STA SpriteAnimationIndex
+
+    ; GameState
+    LDA #4
+    STA GameState
+
+    ; TimerCounter20
+    LDA #200
+    STA TimerCounter20
+
+    ; ScoreHundreds
+    LDA #-1
+    STA ScoreHundreds
+
+    ; Set Controller Inputs
+    LDA #0
+    STA SWACNT
 
     ; Set P0 and P1 Delays
     STA VDELP0
 
     ; Set Wafer XPos Index
     STA WaferXPosIndex
-
-    ; Set IsFrameGoingUp
-    LDA #1
-    STA IsFrameGoingUp
 
     ; PacmanSpriteDataPointer
     LDA #<Sprite0Data
@@ -476,78 +481,18 @@ InitVariables
     RTS
 
 ;==================================================================================
-; PositionSpriteX - Subroutine to position player sprite
+; PositionSpriteX - Subroutine to position all sprites (P0,P1,M0)
 ;==================================================================================
 
 PositionSpriteX
     STA WSYNC                                   ; 3
     STA HMCLR  ; clear any previous movement    ; 3
 
-PosSP   
-
-    LDA SpriteXPos                          ; 4
-    TAY                                         ; 2
-
-    ; Divide by 16
-    LSR                                         ; 2
-    LSR                                         ; 2
-    LSR                                         ; 2
-    LSR                                         ; 2
-    STA PS_temp                                 ; 3
-
-    TYA                                         ; 2
-    AND #15                                     ; 2
-
-    CLC                                         ; 2
-
-    ADC PS_temp                                 ; 3
-    LDY PS_temp                                 ; 3
-
-    CMP #15                                     ; 2
-    BCC NH                                      ; 3
-    SBC #15                                     ; 2
-    INY                                         ; 2
-
-NH
-    ; Use remainder for fine adjustment
-    EOR #7                                      ; 2
-    ASL                                         ; 2
-    ASL                                         ; 2
-    ASL                                         ; 2
-    ASL                                         ; 2
-
-    STA HMP0    ; fine movement             ; 4
-    STA WSYNC                                   ; 3
-
-    JSR Ret         ; just a 12 cycle delay     ; 12
-    BIT 0           ; 15 cycles = 3 loops :)    ; 3
-
-
-Jiggle  
-    DEY                                         ; 2
-    BPL Jiggle                                  ; 3
-
-    STA RESP0                               ; 4
-
-    STA WSYNC                                   ; 3
-    STA HMOVE                                   ; 3
-    
-Ret
-    RTS                                         ; 6
-
-;==================================================================================
-; PositionGhostSpriteX - Subroutine to position ghost sprite
-;==================================================================================
-
-PositionGhostSpriteX
-    STA WSYNC                                   ; 3
-    STA HMCLR  ; clear any previous movement    ; 3
-
-    LDX #1     ; sprite index                   ; 2
+    LDX #3     ; sprite index                   ; 2
 
 PosSP1   
 
-    LDA GhostSpriteXPos-1,x                          ; 4
+    LDA SpriteXPos-1,x                          ; 4
     TAY                                         ; 2
 
     ; Divide by 16
@@ -578,7 +523,7 @@ NH1
     ASL                                         ; 2
     ASL                                         ; 2
 
-    STA HMP1-1,x    ; fine movement             ; 4
+    STA HMP0-1,x    ; fine movement             ; 4
     STA WSYNC                                   ; 3
 
     JSR Ret1         ; just a 12 cycle delay     ; 12
@@ -589,7 +534,7 @@ Jiggle1
     DEY                                         ; 2
     BPL Jiggle1                                  ; 3
 
-    STA RESP1-1,x                               ; 4
+    STA RESP0-1,x                               ; 4
 
     DEX                                         ; 2
     BNE PosSP1                                   ; 3
@@ -601,70 +546,32 @@ Ret1
     RTS                                         ; 6
 
 ;==================================================================================
-; PositionWaferX0 - Subroutine to position wafer missile
-;==================================================================================
-
-PositionWaferX0
-    STA WSYNC                                   ; 3
-    STA HMCLR  ; clear any previous movement    ; 3
-
-PosSPWafer0 
-
-    LDA CurWaferXPos0                            ; 4
-    TAY                                         ; 2
-
-    ; Divide by 16
-    LSR                                         ; 2
-    LSR                                         ; 2
-    LSR                                         ; 2
-    LSR                                         ; 2
-    STA PS_temp                                 ; 3
-
-    TYA                                         ; 2
-    AND #15                                     ; 2
-
-    CLC                                         ; 2
-
-    ADC PS_temp                                 ; 3
-    LDY PS_temp                                 ; 3
-
-    CMP #15                                     ; 2
-    BCC NHWafer0                                      ; 3
-    SBC #15                                     ; 2
-    INY                                         ; 2
-
-NHWafer0
-    ; Use remainder for fine adjustment
-    EOR #7                                      ; 2
-    ASL                                         ; 2
-    ASL                                         ; 2
-    ASL                                         ; 2
-    ASL                                         ; 2
-
-    STA HMM0        ; fine movement             ; 4
-    STA WSYNC                                   ; 3
-
-    JSR RetWafer0         ; just a 12 cycle delay     ; 12
-    BIT 0           ; 15 cycles = 3 loops :)    ; 3
-
-
-JiggleWafer0  
-    DEY                                         ; 2
-    BPL JiggleWafer0                                 ; 3
-
-    STA RESM0                               ; 4
-
-    STA WSYNC                                   ; 3
-    STA HMOVE                                   ; 3
-    
-RetWafer0
-    RTS                                         ; 6
-
-;==================================================================================
 ; UpdateEntities - Update Game Logic
 ;==================================================================================
 
 UpdateEntities
+    ; Check if Game Is Paused
+    LDA GameState
+    CMP #2
+    BEQ EndUpdateEntities
+    
+    ; Update Timer
+    JSR UpdateTimer
+    
+    ; Get Out End of Level (If it's the case)
+    JSR LevelEndOut
+
+    ; Apply Animation Frame
+    JSR ApplyAnimationFrame
+
+    ; Check if it's playing the end of the level
+    LDA GameState
+    CMP #4
+    BEQ EndUpdateEntities
+
+    ; Change Animation Frame
+    JSR ChangeAnimationFrame
+    
     ; Check Player Collision with PF
     JSR CheckPlayerCollisionPF
 
@@ -676,26 +583,115 @@ UpdateEntities
 
     ; Remove Collisions After Checks
     STA CXCLR
-
-    ; Update Timer
-    JSR UpdateTimer
     
     ; Increase Score According with Picked Up Wafer Buffer
     JSR UpdateScore
-
-    ; Change Animation Frame
-    JSR ChangeAnimationFrame
-
-    ; Apply Animation Frame
-    JSR ApplyAnimationFrame
 
     ; Update Wafer XPos Index
     JSR UpdateWaferIndex
 
     ; Check Game Over
     LDA LifeCount
-    BEQ HandleGameOver
+    BEQ GoToGameOver
 
+    ; Check End of Level
+    JSR CheckLevelEnd
+
+EndUpdateEntities
+    RTS
+
+GoToGameOver
+    LDA #3
+    STA GameState
+    JMP HandleGameOver
+
+;==================================================================================
+; LevelEndOut - Get out of level end tune
+;==================================================================================
+
+LevelEndOut
+    ; Verify if it's in level end
+    LDA GameState
+    CMP #4
+    BNE LevelEndOutRet
+
+    ; Verify Counter
+    LDA TimerCounter20
+    BNE LevelEndOutRet
+
+    ; Out of Level End
+    LDA #0
+    STA GameState
+
+    ; Give 100 Points
+    INC ScoreHundreds
+
+    ; Give a Free Life (Max 3)
+    JSR GiveLife
+
+LevelEndOutRet
+    RTS
+
+;==================================================================================
+; GiveLife - Give an extra life to the player
+;==================================================================================
+
+GiveLife
+    INC LifeCount
+    LDA LifeCount
+    CMP #4
+    BNE GiveLifeRet
+
+    LDA #3
+    STA LifeCount
+
+GiveLifeRet
+    RTS
+
+;==================================================================================
+; CheckLevelEnd - Verify if all wafers were collected
+;==================================================================================
+
+CheckLevelEnd
+    LDA WaferCount
+    CMP #42
+    BNE NotLevelEnd
+
+LevelEnd
+    LDA #0
+    LDX #6
+
+    ; Zero All Wafers
+ZeroWaferArrayLoop
+    DEX
+    STA WaferArray,x
+    CPX #0
+    BNE ZeroWaferArrayLoop
+
+    ; Zero WaferCount
+    STA WaferCount
+
+    ; Return Player to Center of Screen
+    LDA #80
+    STA SpriteXPos
+    LDA #107
+    STA SpriteYPos
+
+    ; Start Playing Level End Tune
+    LDA #4
+    STA GameState
+
+    ; Change Character Frame to 3
+    LDA #3
+    STA SpriteAnimationIndex
+    LDA #0
+    STA IsFrameGoingUp
+    
+    ; Prepare Timer For Level End Tune
+    LDA #200
+    STA TimerCounter20
+
+NotLevelEnd
     RTS
 
 ;==================================================================================
@@ -725,8 +721,9 @@ ReturnWaferIndex
 CheckPlayerCollisionGhosts
     
     ; Check if death animation is playing
-    LDA IsPlayingDeathAnimation
-    BNE NoP0P1Collision
+    LDA GameState
+    CMP #1
+    BEQ NoP0P1Collision
     
     ; Check Collision
     LDA CXPPMM
@@ -743,7 +740,7 @@ P0P1Collision
     STA SpriteAnimationIndex
 
     LDA #1
-    STA IsPlayingDeathAnimation
+    STA GameState
 
 NoP0P1Collision
     RTS
@@ -921,8 +918,9 @@ UpdatePlayerPositionRet
 
 ChangeAnimationFrame
     ; Verify If Is Death Animation
-    LDA IsPlayingDeathAnimation
-    BNE FrameIsDeath
+    LDA GameState
+    CMP #1
+    BEQ FrameIsDeath
     
 FrameNotDeath
     ; Verify TimerCounter5
@@ -966,14 +964,14 @@ FrameIsDeath
     BNE DontChangeFrame
 
 CheckIfLastDeathFrame
-    ; Check if Frame is 9 (Last Death Frame)
+    ; Check if Frame is 10 (Last Death Frame)
     LDA SpriteAnimationIndex
-    CMP #9
+    CMP #10
     BNE ChangeDeathFrame
 
     ; End Death Animation
     LDA #0
-    STA IsPlayingDeathAnimation
+    STA GameState
     STA SpriteAnimationIndex
 
     LDA #1
@@ -1028,6 +1026,8 @@ ApplyAnimationFrame
     BEQ Animation8
     CMP #9
     BEQ Animation9
+    CMP #10
+    BEQ Animation10
 
 AnimationFrameRet
     JMP ApplyAnimationFrameRet
@@ -1100,17 +1100,26 @@ Animation9
     STA SpriteAddrPtr
     LDA #>Sprite9Data
     STA SpriteAddrPtr+1
+    JMP ApplyAnimationFrameRet
+
+Animation10
+    LDA #<Sprite10Data
+    STA SpriteAddrPtr
+    LDA #>Sprite10Data
+    STA SpriteAddrPtr+1
 
 ApplyAnimationFrameRet
     RTS
 
 ;==================================================================================
-; GetControllerInputs - Update Player Velocity Mask According to Inputs
+; GetControllerInputsDirectional - Update Player Velocity Mask According to Inputs
 ;==================================================================================
 
-GetControllerInputs
-    LDA IsPlayingDeathAnimation
-    BNE ControllerRet
+GetControllerInputsDirectional
+    ; Check if game is in death animation
+    LDA GameState
+    CMP #1
+    BEQ ControllerRet
     
     LDX SWCHA
     
@@ -1164,6 +1173,55 @@ UpInput
     STA PlayerVelocityMask
 
 ControllerRet
+    RTS
+
+;==================================================================================
+; GetControllerInputsButton - Pause Game
+;==================================================================================
+
+GetControllerInputsButton
+    ; Verify Button Press
+    LDA INPT4
+    AND #%10000000
+    TAY
+    
+    ; See if it's Edge
+    CMP WasButtonPressed
+    BEQ StateNotChanged
+
+StateChanged
+    ; Only React to One Edge
+    CMP #0
+    BNE ButtonNotPushed
+
+    ; Check Expected Behavior if in Game Over Screen
+    LDA GameState
+    CMP #3
+    BNE PauseUnpauseGame
+
+RestartGame
+    ; Fully Reset Game
+    JMP Reset
+    
+PauseUnpauseGame
+    ; Pause/Unpause Game
+    LDA GameState
+    CMP #0
+    BEQ PauseGame
+
+UnpauseGame
+    LDA #0
+    STA GameState
+    JMP ControllerButtonRet
+
+PauseGame
+    LDA #2
+    STA GameState
+
+StateNotChanged
+ButtonNotPushed
+ControllerButtonRet
+    STY WasButtonPressed
     RTS
 
 ;==================================================================================
@@ -1264,8 +1322,9 @@ UpdateScore
     CMP #0
     BEQ DidntPickUpWafer
     
-    ; Increase Ones
+    ; Picked Up Wafer - Increase Ones and Add to Wafer Count
     INC ScoreOnes
+    INC WaferCount
     
     ; Check if Ones reached 10
     LDX ScoreOnes
@@ -1312,10 +1371,29 @@ NotYet10
 ;==================================================================================
 
 HandleGameOver
-    JSR HandleVSync
-    JSR HandleVBlank
+    ; Check if Button is Pressed
+    JSR GetControllerInputsButton
+    
+    ; TIM64T Loop
+VBlankLoopGameOver
+    LDA INTIM
+    BNE VBlankLoopGameOver
+
+    ; Show Screen
     JSR ShowGameOverScreen
     JSR GameOverOverscan
+    JSR HandleVSync
+    
+    ; Initialize TIM64T
+    LDA #42
+    STA TIM64T
+
+    ; Prepare Registers for VBLANK
+    LDA #0
+    STA VSYNC
+    LDA #%01000010
+    STA VBLANK
+
     JMP HandleGameOver
 
 ;==================================================================================
@@ -1326,21 +1404,57 @@ ShowGameOverScreen
     LDA #0                 
     STA VBLANK
 
-    LDX #191
+    LDA #$0E
+    STA COLUPF
+
+    LDX #60
     STA WSYNC
-GameOverLoop
+GameOverLoop1
+    STA WSYNC
+    DEX
+    BNE GameOverLoop1
+
+    LDX #50
+GameOverLoop2
     ; Display Game Over Message
-    LDA GAME_OVER_PF_00
+    LDA GameOverMessage_STRIP_0,x
     STA PF0
-    LDA GAME_OVER_PF_01
+    LDA GameOverMessage_STRIP_1,x
     STA PF1
-    LDA GAME_OVER_PF_02
+    LDA GameOverMessage_STRIP_2,x
     STA PF2
 
-    DEX
-    STA WSYNC
-    BNE GameOverLoop
+    JSR Delay12
+    
+    LDA #0
+    STA PF0
+    STA PF1
+    STA PF2
 
+    STA WSYNC
+    DEX
+    BNE GameOverLoop2
+
+    LDX #81
+GameOverLoop3
+    STA WSYNC
+    DEX
+    BNE GameOverLoop3
+
+    RTS
+
+;==================================================================================
+; GameOverOverscan
+;==================================================================================
+
+GameOverOverscan
+    
+    LDX #30
+GameOverOverscanLoop
+    STA WSYNC
+    DEX
+    BNE GameOverOverscanLoop
+    
     RTS
 
 ;==================================================================================
@@ -1621,6 +1735,25 @@ Sprite9Data
 	.byte #%00000000
     .byte #%00000000
 
+Sprite10Data
+    ; Frame 10
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+    .byte #%00000000
+	.byte #%00000000
+    .byte #%00000000
+
 ;==================================================================================
 ; Sprite Data - Ghost
 ;==================================================================================
@@ -1693,6 +1826,7 @@ SpriteLifeData
 ;==================================================================================
     
     include "MainBoard.asm"
+    include "GameOverMessage.asm"
 
 ;===============================================================================
 ; free space check before page boundry
