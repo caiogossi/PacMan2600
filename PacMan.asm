@@ -37,11 +37,17 @@ PickedUpWaferBuffer ds 1
 SpriteAnimationIndex ds 1
 IsFrameGoingUp ds 1
 
+ScoreHundreds ds 1
 ScoreTens ds 1
 ScoreOnes ds 1
+
+HundredsOffset ds 1
 TensOffset ds 1
 OnesOffset ds 1
-ScoreDisplayTemp ds 1
+
+ScoreDisplayBufferHundreds ds 1
+ScoreDisplayBufferTens ds 1
+ScoreDisplayBufferOnes ds 1
 
 TimerCounter ds 1
 
@@ -146,7 +152,6 @@ MainKernel
 
 MainFrameLoop
     ; First Line
-    
     ; Load First Playfield
     LDA MainBoard_STRIP_0,x ; 4  4   0
     STA PF0                 ; 3  7   12
@@ -176,7 +181,6 @@ DoDrawWafer
     JMP AfterDrawing
 
 DoNotDrawWafer
-    ; If flow comes from BEQ DoNotDrawWafer, A = 0; Else, A = %10
     LDA #0
     STA ENAM0 
        
@@ -271,7 +275,6 @@ Overscan
     
     ; Prepare Registers for Overscan Drawing
     LDA #0
-    STA PF1
     STA REFP0
     STA REFP1
 
@@ -279,46 +282,53 @@ Overscan
     STA COLUP0
     STA COLUP1
 
+    LDA #%011
+    STA NUSIZ0
+
+    STA RESP0
+    
     ; Calculate Tens Offset
     LDX ScoreTens
-    LDA MultBy20,x
+    LDA MultBy14,x
     STA TensOffset
     
     ; Calculate Ones Offset
     LDX ScoreOnes
-    LDA MultBy20,x
+    LDA MultBy14,x
     STA OnesOffset
+    
+    ;STA RESP1
 
-    ; Adjust Score Placement
-    STA WSYNC
-    JSR Delay12
-    JSR Delay12
-    STA RESP0
-    STA RESP1
-
-    LDX #28
+    LDX #29
 OverscanLoop
     
     ; Is it time to draw?
-    CPX #10
-    BCC SmallerThan9
+    CPX #15
+    BCC SmallerThan17
     
+BiggerThan17
     ; Time to draw
     TXA
-    SBC #9
-    ADC TensOffset
-    TAY
-    LDA BottomData,y
-    STA GRP0
-    
-    TXA
-    SBC #9
+    SBC #15
+    CLC
     ADC OnesOffset
     TAY
     LDA BottomData,y
-    STA GRP1
+    STA ScoreDisplayBufferOnes
     
-SmallerThan9    
+    TXA
+    SBC #15
+    CLC
+    ADC TensOffset
+    TAY
+    LDA BottomData,y
+    STA ScoreDisplayBufferTens  
+    
+    STA GRP0
+    LDA ScoreDisplayBufferOnes
+    STA GRP0
+    
+SmallerThan17    
     STA WSYNC
     DEX
     BNE OverscanLoop
@@ -327,6 +337,10 @@ SmallerThan9
     LDA #0
     STA GRP0
     STA GRP1
+
+    ; Return NUSIZ0
+    LDA #%100000
+    STA NUSIZ0
 
     ; Return P0 Register Reflection Value
     LDA PlayerReflectedBuffer
@@ -372,7 +386,7 @@ InitVariables
     ; Initialize Variables
     
     ; SpriteXPos and YPos
-    LDA #20
+    LDA #80
     STA SpriteXPos
     LDA #107
     STA SpriteYPos
@@ -1110,11 +1124,11 @@ FindWaferLookUp
     .byte 0,%00000010,%00000100,%00001000,%00010000,%00100000,%01000000,%10000000
 
 ;==================================================================================
-; MultBy20
+; MultBy14
 ;==================================================================================
 
-MultBy20
-    .byte 0,20,40,60,80,100,120,140,160,180,200
+MultBy14
+    .byte 0,14,28,42,56,70,84,98,112,126,140
 
 ;==================================================================================
 ; CheckLineBytes
@@ -1294,8 +1308,6 @@ BottomData
 
     ; 0
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
     .byte %01111110
     .byte %01111110
     .byte %11100111
@@ -1305,24 +1317,15 @@ BottomData
     .byte %11000011
     .byte %11000011
     .byte %11000011
-    .byte %11000011
-    .byte %11000011
-    .byte %11000011
     .byte %11100111
     .byte %11100111
     .byte %01111110
     .byte %01111110
-    .byte %00000000
     
     ; 1
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
     .byte %11111111
     .byte %11111111
-    .byte %00011100
-    .byte %00011100
-    .byte %00011100
     .byte %00011100
     .byte %00011100
     .byte %00011100
@@ -1334,58 +1337,41 @@ BottomData
     .byte %01111100
     .byte %00111100
     .byte %00011100
-    .byte %00000000
     
     ; 2
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
     .byte %11111111
     .byte %11111111
     .byte %11100000
     .byte %11100000
-    .byte %01110000
     .byte %00111000
-    .byte %00011100
     .byte %00001110
     .byte %00000111
-    .byte %00000011
     .byte %00000011
     .byte %11000011
     .byte %11000011
     .byte %11100111
     .byte %01111110
     .byte %00111100
-    .byte %00000000
     
     ; 3
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
     .byte %00111100
     .byte %01111110
     .byte %11101111
     .byte %11000111
     .byte %00000111
-    .byte %00000111
     .byte %00001110
     .byte %00011100
-    .byte %00011100
     .byte %00001110
-    .byte %00000111
     .byte %00000111
     .byte %11000111
     .byte %11101111
     .byte %01111110
     .byte %00111100
-    .byte %00000000
     
     ; 4
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000110
-    .byte %00000110
     .byte %00000110
     .byte %00000110
     .byte %11111111
@@ -1397,20 +1383,14 @@ BottomData
     .byte %00110110
     .byte %00110110
     .byte %00011110
-    .byte %00011110
     .byte %00001110
     .byte %00001110
-    .byte %00000000
     
     ; 5
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %11111000
     .byte %11111100
     .byte %11111110
     .byte %00001111
-    .byte %00000111
     .byte %00000111
     .byte %00000111
     .byte %00001111
@@ -1419,40 +1399,27 @@ BottomData
     .byte %11100000
     .byte %11100000
     .byte %11100000
-    .byte %11100000
     .byte %11111111
     .byte %11111111
-    .byte %00000000
     
     ; 6
-    .byte %00000000
-    .byte %00000000
     .byte %00000000
     .byte %00111100
     .byte %01111110
     .byte %11100111
     .byte %11000011
     .byte %11000011
-    .byte %11000011
     .byte %11100111
     .byte %11111110
     .byte %11111100
     .byte %11000000
-    .byte %11000000
-    .byte %11000000
     .byte %11000011
     .byte %11100111
-    .byte %01111111
-    .byte %00111110
-    .byte %00000000
+    .byte %11111111
+    .byte %01111110
     
     ; 7
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00011000
-    .byte %00011000
-    .byte %00011000
     .byte %00011000
     .byte %00011000
     .byte %00011000
@@ -1466,16 +1433,12 @@ BottomData
     .byte %11111111
     .byte %11111111
     .byte %11111111
-    .byte %00000000
     
     ; 8
-    .byte %00000000
-    .byte %00000000
     .byte %00000000
     .byte %00111100
     .byte %01111110
     .byte %11100111
-    .byte %11000011
     .byte %11000011
     .byte %11000011
     .byte %11100111
@@ -1483,34 +1446,25 @@ BottomData
     .byte %00111100
     .byte %01100110
     .byte %11000011
-    .byte %11000011
-    .byte %11000011
     .byte %11100111
     .byte %01111110
     .byte %00111100
-    .byte %00000000
 
     ; 9
     .byte %00000000
-    .byte %00000000
-    .byte %00000000
     .byte %00111100
     .byte %01111110
     .byte %11100111
     .byte %11000011
-    .byte %00000011
-    .byte %00000011
     .byte %00000011
     .byte %00111111
     .byte %01111111
     .byte %11100111
     .byte %11000011
     .byte %11000011
-    .byte %11000011
     .byte %11100111
-    .byte %11111110
-    .byte %01111100
-    .byte %00000000
+    .byte %01111110
+    .byte %00111100
     .byte %00000000
 
 ;==================================================================================
