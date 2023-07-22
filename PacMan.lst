@@ -2181,9 +2181,9 @@
    1805  f7e5		       7e		      .byte.b	#%01111110
    1806  f7e6		       ff		      .byte.b	#%11111111
    1807  f7e7		       ff		      .byte.b	#%11111111
-   1808  f7e8		       ff		      .byte.b	#%11111111
-   1809  f7e9		       ff		      .byte.b	#%11111111
-   1810  f7ea		       ff		      .byte.b	#%11111111
+   1808  f7e8		       3f		      .byte.b	#%00111111
+   1809  f7e9		       0f		      .byte.b	#%00001111
+   1810  f7ea		       3f		      .byte.b	#%00111111
    1811  f7eb		       ff		      .byte.b	#%11111111
    1812  f7ec		       ff		      .byte.b	#%11111111
    1813  f7ed		       7e		      .byte.b	#%01111110
