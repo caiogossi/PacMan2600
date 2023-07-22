@@ -385,7 +385,7 @@ MainBoard_STRIP_1
  .byte 255
  .byte 255
  .byte 0
- .byte 4
+ .byte 0
 MainBoard_STRIP_2
  .byte 0
  .byte 0
@@ -578,7 +578,7 @@ MainBoard_STRIP_2
  .byte 255
  .byte 255
  .byte 0
- .byte 128
+ .byte 0
 MainBoard_STRIP_3
  .byte 0
  .byte 0
@@ -771,7 +771,7 @@ MainBoard_STRIP_3
  .byte 240
  .byte 240
  .byte 0
- .byte 16
+ .byte 0
 MainBoard_STRIP_4
  .byte 0
  .byte 0
@@ -964,7 +964,7 @@ MainBoard_STRIP_4
  .byte 255
  .byte 255
  .byte 0
- .byte 2
+ .byte 0
 MainBoard_STRIP_5
  .byte 0
  .byte 0

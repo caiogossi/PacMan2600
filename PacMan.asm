@@ -29,6 +29,11 @@ SpriteGhostAddrPtr ds 2
 GhostSpriteXPos ds 1
 GhostSpriteYPos ds 1
 
+CurWaferXPos0 ds 1
+WaferXPosIndex ds 1
+WaferArray ds 6
+PickedUpWaferBuffer ds 1
+
 SpriteAnimationIndex ds 1
 IsFrameGoingUp ds 1
 
@@ -39,6 +44,7 @@ OnesOffset ds 1
 ScoreDisplayTemp ds 1
 
 TimerCounter ds 1
+
 PlayerReflectedBuffer ds 1
 GhostReflectedBuffer ds 1
 
@@ -128,15 +134,19 @@ MainKernel
     LDA #0                 
     STA VBLANK              
     
+    ; Position Player and Ghost According to XPos
     JSR PositionSpriteX
-    JSR PositionGhostSpriteX    
+    JSR PositionGhostSpriteX
+    
+    ; Position Wafer in XPos
+    JSR PositionWaferX0
 
     LDX #191               
     STA WSYNC
 
 MainFrameLoop
-    
     ; First Line
+    
     ; Load First Playfield
     LDA MainBoard_STRIP_0,x ; 4  4   0
     STA PF0                 ; 3  7   12
@@ -147,33 +157,46 @@ MainFrameLoop
     LDA MainBoard_STRIP_2,x ; 4  18
     STA PF2                 ; 3  21
 
-    ; Check Vertical Drawing
+    ; Check if line has wafer
+    LDA CheckLineBytes,x
+    BEQ DoNotDrawWafer
+
+DoDrawWafer
+    ; Verify if water is picked up
+    LDY WaferXPosIndex
+    LDA WaferArray,y
+    
+    LDY CheckLineBytes,x
+    AND FindWaferLookUp,y
+    BNE DoNotDrawWafer
+    
+    ; Draw wafer
+    LDA #%10
+    STA ENAM0
+    JMP AfterDrawing
+
+DoNotDrawWafer
+    ; If flow comes from BEQ DoNotDrawWafer, A = 0; Else, A = %10
+    LDA #0
+    STA ENAM0 
+       
+AfterDrawing
+    ; Check Vertical Sprite (P0) Drawing
     TXA                     ; 2
     SEC                     ; 2
     SBC SpriteYPos          ; 3
 	ADC #SPRITE_HEIGHT      ; 2
-    
-    ; Load Second Playfield
-    LDY MainBoard_STRIP_3,x ; 4  25
-    STY PF0                 ; 3  28
-
-    LDY MainBoard_STRIP_4,x ; 4  32
-    STY PF1
-    
-    LDY MainBoard_STRIP_5,x ; 4  39
-    STY PF2                 ; 3  42
 
     ; Load P0 Sprite Data
-    BCC SkipDrawing         ; 3
+    BCC SkipDrawingP0       ; 3
     TAY                     ; 3
     LDA (SpriteAddrPtr),y   ; 5
     STA GRP0                ; 3
 
-SkipDrawing
+SkipDrawingP0
     ; Decrease X and Go To Next Line
-    DEX                     ; 2
     STA WSYNC               ; 3
-    CPX #0
+    DEX                     ; 2
     BEQ MainFrameLoopEnd    ; 2 
     
     ; Second Line
@@ -187,22 +210,34 @@ SkipDrawing
 
     LDA MainBoard_STRIP_2,x ; 4
     STA PF2                 ; 3
+
+    ; Check Collision Between Player and Wafer
+    BIT CXM0P
+    BVC DidntGetWafer
+
+GotWafer
+    ; Routine to save wafer as picked up
+    LDY WaferXPosIndex
+    LDA WaferArray,y
     
+    LDY CheckLineBytes,x
+    
+    ; Mark Wafer Picked Up for Frame
+    ORA FindWaferLookUp,y
+
+    LDY WaferXPosIndex
+    STA WaferArray,y
+
+    ; Reset Collision Detection
+    STA PickedUpWaferBuffer
+    STA CXCLR
+
+DidntGetWafer
     ; Check Ghost Vertical Drawing
     TXA                     ; 2
     SEC                     ; 2
     SBC GhostSpriteYPos     ; 3
 	ADC #SPRITE_HEIGHT      ; 2
-    
-    ; Load Second Playfield
-    LDY MainBoard_STRIP_3,x ; 4
-    STY PF0                 ; 3
-
-    LDY MainBoard_STRIP_4,x ; 4
-    STY PF1                 ; 3
-
-    LDY MainBoard_STRIP_5,x ; 4
-    STY PF2                 ; 3
 
     ; Load Ghost Sprite Data
     BCC SkipGhostDrawing    ; 3
@@ -326,13 +361,19 @@ InitVariables
     LDA #$58
     STA COLUP1
 
+    ; Initialize CTRLPF
+    LDA #1
+    STA CTRLPF
+    
+    ; Initialize Missile Graphics
+    LDA #%100000
+    STA NUSIZ0
+
     ; Initialize Variables
     
-    ; SpriteXPos
-    LDA #80
+    ; SpriteXPos and YPos
+    LDA #20
     STA SpriteXPos
-    
-    ; SpriteYPos
     LDA #107
     STA SpriteYPos
 
@@ -359,6 +400,9 @@ InitVariables
 
     ; Set P0 and P1 Delays
     STA VDELP0
+
+    ; Set Wafer XPos Index
+    STA WaferXPosIndex
 
     ; PacmanSpriteDataPointer
     LDA #<Sprite0Data
@@ -430,7 +474,6 @@ Jiggle
 
     STA WSYNC                                   ; 3
     STA HMOVE                                   ; 3
-    STA WSYNC                                   ; 3
     
 Ret
     RTS                                         ; 6
@@ -496,9 +539,68 @@ Jiggle1
 
     STA WSYNC                                   ; 3
     STA HMOVE                                   ; 3
-    STA WSYNC                                   ; 3
     
 Ret1
+    RTS                                         ; 6
+
+;==================================================================================
+; PositionWaferX0 - Subroutine to position wafer missile
+;==================================================================================
+
+PositionWaferX0
+    STA WSYNC                                   ; 3
+    STA HMCLR  ; clear any previous movement    ; 3
+
+PosSPWafer0 
+
+    LDA CurWaferXPos0                            ; 4
+    TAY                                         ; 2
+
+    ; Divide by 16
+    LSR                                         ; 2
+    LSR                                         ; 2
+    LSR                                         ; 2
+    LSR                                         ; 2
+    STA PS_temp                                 ; 3
+
+    TYA                                         ; 2
+    AND #15                                     ; 2
+
+    CLC                                         ; 2
+
+    ADC PS_temp                                 ; 3
+    LDY PS_temp                                 ; 3
+
+    CMP #15                                     ; 2
+    BCC NHWafer0                                      ; 3
+    SBC #15                                     ; 2
+    INY                                         ; 2
+
+NHWafer0
+    ; Use remainder for fine adjustment
+    EOR #7                                      ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+    ASL                                         ; 2
+
+    STA HMM0        ; fine movement             ; 4
+    STA WSYNC                                   ; 3
+
+    JSR RetWafer0         ; just a 12 cycle delay     ; 12
+    BIT 0           ; 15 cycles = 3 loops :)    ; 3
+
+
+JiggleWafer0  
+    DEY                                         ; 2
+    BPL JiggleWafer0                                 ; 3
+
+    STA RESM0                               ; 4
+
+    STA WSYNC                                   ; 3
+    STA HMOVE                                   ; 3
+    
+RetWafer0
     RTS                                         ; 6
 
 ;==================================================================================
@@ -518,7 +620,7 @@ UpdateEntities
     ; Update Timer
     JSR UpdateTimer
     
-    ; Increase Score
+    ; Increase Score According with Picked Up Wafer Buffer
     JSR UpdateScore
 
     ; Change Animation Frame
@@ -527,6 +629,29 @@ UpdateEntities
     ; Apply Animation Frame
     JSR ApplyAnimationFrame
 
+    ; Update Wafer XPos Index
+    JSR UpdateWaferIndex
+
+    RTS
+
+;==================================================================================
+; UpdateWaferIndex - increase wafer XPos Index and apply it
+;==================================================================================
+
+UpdateWaferIndex
+    INC WaferXPosIndex
+    
+    LDX WaferXPosIndex
+    CPX #6
+    BNE ReturnWaferIndex
+
+WaferIndexEquals6
+    LDX #0
+    STX WaferXPosIndex
+
+ReturnWaferIndex
+    LDA WaferXPosArray0,x
+    STA CurWaferXPos0
     RTS
 
 ;==================================================================================
@@ -926,10 +1051,10 @@ TimerRet
 ;==================================================================================
 
 UpdateScore
-    ; Check If Timer == 0
-    LDA TimerCounter
+    ; Check If Wafer Was Picked Up
+    LDA PickedUpWaferBuffer
     CMP #0
-    BNE NotYet10
+    BEQ DidntPickUpWafer
     
     ; Increase Ones
     INC ScoreOnes
@@ -955,7 +1080,12 @@ TensReached10
     LDX #0
     STX ScoreTens
 
+DidntPickUpWafer
 NotYet10
+    ; Flush PickedUpWaferBuffer
+    LDA #0
+    STA PickedUpWaferBuffer
+    
     RTS
 
 ;==================================================================================
@@ -966,6 +1096,20 @@ Delay12
     RTS
 
 ;==================================================================================
+; WaferXPosArray0
+;==================================================================================
+
+WaferXPosArray0
+    .byte 25,35,60,100,130,140
+
+;==================================================================================
+; FindWaferLookUp - Look up table for finding wafer in memory
+;==================================================================================
+
+FindWaferLookUp
+    .byte 0,%00000010,%00000100,%00001000,%00010000,%00100000,%01000000,%10000000
+
+;==================================================================================
 ; MultBy20
 ;==================================================================================
 
@@ -973,11 +1117,35 @@ MultBy20
     .byte 0,20,40,60,80,100,120,140,160,180,200
 
 ;==================================================================================
+; CheckLineBytes
+;==================================================================================
+
+CheckLineBytes
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,7,7,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 6,6,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,5,5,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,4,4,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,3,3,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,2
+    .byte 2,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,1,1
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,0,0,0,0
+
+;==================================================================================
 ; Control Page Boundry
 ;==================================================================================
 
-    .byte 0,1,2,3,4,5,6,7,8,9,10
-    .byte 0,1
 
 ;===============================================================================
 ; free space check before page boundry
