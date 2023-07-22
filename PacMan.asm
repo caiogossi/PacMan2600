@@ -36,6 +36,7 @@ GhostSpriteYPos ds 1
 WaferXPosIndex ds 1
 WaferArray ds 6
 PickedUpWaferBuffer ds 1
+WaferDrawingArray ds 7
 
 SpriteAnimationIndex ds 1
 IsFrameGoingUp ds 1
@@ -138,6 +139,7 @@ HandleVBlank
     JSR GetControllerInputsButton
     JSR GetController2InputsDEBUG
     JSR UpdateEntities
+    JSR PrepareWaferDrawingArray
     
 VBlankLoop
     LDA INTIM
@@ -147,7 +149,7 @@ VBlankLoop
     RTS
 
 ;==================================================================================
-; MainKernel
+; MainKernel - Main Routine to Display Game
 ;==================================================================================
     
 MainKernel
@@ -171,30 +173,26 @@ MainFrameLoop
 
     LDA MainBoard_STRIP_2,x ; 4  18
     STA PF2                 ; 3  21
-
+    
     ; Check if line has wafer
     LDA CheckLineBytes,x
     BEQ DoNotDrawWafer
-
-CheckIfWaferCollected
-    ; Verify if wafer is picked up
-    LDY WaferXPosIndex
-    LDA WaferArray,y
     
-    LDY CheckLineBytes,x
-    AND FindWaferLookUp,y
+    ; Check if wafer was picked up
+    TAY
+    LDA WaferDrawingArray-1,y
     BNE DoNotDrawWafer
-    
-    ; Draw wafer
+
+DoDrawWafer
     LDA #%10
     STA ENAM0
-    JMP AfterDrawing
+    JMP AfterDrawingWafer
 
 DoNotDrawWafer
     LDA #0
     STA ENAM0 
-       
-AfterDrawing
+    
+AfterDrawingWafer
     ; Check Vertical Sprite (P0) Drawing
     TXA                     ; 2
     SEC                     ; 2
@@ -225,28 +223,6 @@ SkipDrawingP0
     LDA MainBoard_STRIP_2,x ; 4
     STA PF2                 ; 3
 
-    ; Check Collision Between Player and Wafer
-    BIT CXM0P
-    BVC DidntGetWafer
-
-GotWafer
-    ; Routine to save wafer as picked up
-    LDY WaferXPosIndex
-    LDA WaferArray,y
-    
-    LDY CheckLineBytes,x
-    
-    ; Mark Wafer Picked Up for Frame
-    ORA FindWaferLookUp,y
-
-    LDY WaferXPosIndex
-    STA WaferArray,y
-
-    ; Reset Collision Detection
-    STA PickedUpWaferBuffer
-    STA CXCLR
-
-DidntGetWafer
     ; Check Ghost Vertical Drawing
     TXA                     ; 2
     SEC                     ; 2
@@ -425,11 +401,13 @@ InitVariables
 
     ; Initialize Variables
     
-    ; SpriteXPos and YPos
-    LDA #80
+    ; SpriteXPos, LastXPos, YPos and LastYPos
+    LDA #77
     STA SpriteXPos
+    STA LastSpriteXPos
     LDA #107
     STA SpriteYPos
+    STA LastSpriteYPos
 
     ; SpriteGhostXPos and YPos
     LDA #77
@@ -546,6 +524,38 @@ Ret1
     RTS                                         ; 6
 
 ;==================================================================================
+; PrepareWaferDrawingArray - Prepare Wafer Drawing Array for MainKernel
+;==================================================================================
+
+PrepareWaferDrawingArray
+    
+    ; Verify if wafer is picked up for each WaferY -> 1 = Picked up (do not draw), 0 = Not picked up (draw)
+    LDY WaferXPosIndex
+    LDA WaferArray,y
+    TAX
+
+    LDY #7
+PrepareWaferLoop
+    TXA 
+    AND FindWaferLookUp,y
+    BEQ NotPickedUp
+
+PickedUp
+    LDA #1
+    STA WaferDrawingArray-1,y
+    JMP PrepareWaferDrawingArrayContinue
+
+NotPickedUp
+    LDA #0
+    STA WaferDrawingArray-1,y
+
+PrepareWaferDrawingArrayContinue
+    DEY
+    BNE PrepareWaferLoop
+    
+    RTS
+
+;==================================================================================
 ; UpdateEntities - Update Game Logic
 ;==================================================================================
 
@@ -581,6 +591,9 @@ UpdateEntities
     ; Check Player Collision with Ghosts
     JSR CheckPlayerCollisionGhosts
 
+    ; Check Player Collision with Wafers
+    JSR CheckWaferCollision
+
     ; Remove Collisions After Checks
     STA CXCLR
     
@@ -604,6 +617,42 @@ GoToGameOver
     LDA #3
     STA GameState
     JMP HandleGameOver
+
+;==================================================================================
+; CheckWaferCollision - Verify player collision with wafer
+;==================================================================================
+
+CheckWaferCollision
+    ; Check Collision Between Player and Wafer
+    BIT CXM0P
+    BVC DidntGetWafer
+
+GotWafer
+    ; Routine to save wafer as picked up
+    
+    ; Y = WaferX
+    LDY WaferXPosIndex
+    
+    ; Load WaferArray[WaferX]
+    LDA WaferArray,y
+    
+    ; Find WaferY from SpriteYPos
+    LDY SpriteYPos
+    LDX ConvertPlayerPosToWaferIndex,y
+    
+    ; Mark Wafer Picked Up for Frame
+    ORA FindWaferLookUp,x
+
+    ; Save on WaferArray[WaferX]
+    LDY WaferXPosIndex
+    STA WaferArray,y
+
+    ; Mark WaferPickedUp for UpdateScore
+    LDA #1
+    STA PickedUpWaferBuffer
+    
+DidntGetWafer
+    RTS
 
 ;==================================================================================
 ; LevelEndOut - Get out of level end tune
@@ -978,7 +1027,7 @@ CheckIfLastDeathFrame
     STA IsFrameGoingUp
 
     ; Reset Player Coordinates
-    LDA #80
+    LDA #77
     STA SpriteXPos
     LDA #107
     STA SpriteYPos
@@ -1515,8 +1564,28 @@ CheckLineBytes
     .byte 0,0,0,0,0,0,0,0,0,1,1
     .byte 0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0
+
+ConvertPlayerPosToWaferIndex
+    .byte 7,7,7,7,7,7,7,7,7,7
+    .byte 7,7,7,7,7,7,7,7,7,7
+    .byte 7,7,7,7,7,7,7,7,7,7
+    .byte 7,7,7,7,7,7,7,7,7,6
+    .byte 6,6,6,6,6,6,6,6,6,6
+    .byte 6,6,6,6,6,6,6,6,6,6
+    .byte 6,6,6,6,6,6,6,6,6,5
+    .byte 5,5,5,5,5,5,5,5,5,5
+    .byte 5,5,5,5,5,5,5,5,5,5
+    .byte 5,5,4,4,4,4,4,4,4,4
+    .byte 4,4,4,4,4,4,4,4,4,4
+    .byte 4,4,4,4,4,4,4,3,3,3
+    .byte 3,3,3,3,3,3,3,3,3,3
+    .byte 3,3,3,3,3,3,3,3,3,3
+    .byte 2,2,2,2,2,2,2,2,2,2
+    .byte 2,2,2,2,2,2,2,2,2,2
+    .byte 2,2,2,2,2,2,1,1,1,1
+    .byte 1,1,1,1,1,1,1,1,1,1
+    .byte 1,1,1,1,1,1,1,1,1,1
+    .byte 1,1,1,1
 
 ;===============================================================================
 ; free space check before page boundry
