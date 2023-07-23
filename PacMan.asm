@@ -9,6 +9,7 @@
 SPRITE_HEIGHT = 18
 TIMER_LIMIT1 = 5
 TIMER_LIMIT2 = 20
+TIMER_LIMIT3 = 8
 
 ;==================================================================================
 ; Program Variables
@@ -29,9 +30,14 @@ SpriteGhostAddrPtr ds 2
 
 SpriteXPos ds 1
 GhostSpriteXPos ds 1
-CurWaferXPos0 ds 1
+CurWaferXPos ds 1
+CurM2XPos ds 1
+CurBallXPos ds 1
 
 GhostSpriteYPos ds 1
+GhostVelocityMask ds 1
+
+BallXPosIndex ds 1
 
 WaferXPosIndex ds 1
 WaferArray ds 6
@@ -54,6 +60,7 @@ ScoreDisplayBufferTens ds 1
 ScoreDisplayBufferOnes ds 1
 
 TimerCounter5 ds 1
+TimerCounter10 ds 1
 TimerCounter20 ds 1
 
 PlayerReflectedBuffer ds 1
@@ -156,7 +163,7 @@ MainKernel
     LDA #0                 
     STA VBLANK              
     
-    ; Position Player, Ghost and Wafer According to XPos
+    ; Position Player, Ghost, Wafer and Ball According to XPos
     JSR PositionSpriteX
 
     LDX #191               
@@ -177,6 +184,7 @@ MainFrameLoop
     ; Check if line has wafer
     LDA CheckLineBytes,x
     BEQ DoNotDrawWafer
+    BMI DoNotDrawWafer
     
     ; Check if wafer was picked up
     TAY
@@ -223,6 +231,21 @@ SkipDrawingP0
     LDA MainBoard_STRIP_2,x ; 4
     STA PF2                 ; 3
 
+    ; Check if ball is to be drawn
+    LDA CheckLineBytes,x
+    BEQ DoNotDrawBall
+    BPL DoNotDrawBall
+    
+DoDrawBall
+    LDA #%10
+    STA ENABL
+    JMP AfterDrawingBall 
+
+DoNotDrawBall
+    LDA #0
+    STA ENABL
+
+AfterDrawingBall
     ; Check Ghost Vertical Drawing
     TXA                     ; 2
     SEC                     ; 2
@@ -392,8 +415,11 @@ InitVariables
     STA COLUP1
 
     ; Initialize CTRLPF
-    LDA #1
+    LDA #%100001
     STA CTRLPF
+    
+    LDA #%10
+    STA ENABL
     
     ; Initialize Missile Graphics
     LDA #%100000
@@ -402,17 +428,23 @@ InitVariables
     ; Initialize Variables
     
     ; SpriteXPos, LastXPos, YPos and LastYPos
+    ;LDA #77
     LDA #77
     STA SpriteXPos
     STA LastSpriteXPos
-    LDA #107
+
+    ;LDA #107
+    LDA #150
     STA SpriteYPos
     STA LastSpriteYPos
 
     ; SpriteGhostXPos and YPos
+    ;LDA #77
     LDA #77
     STA GhostSpriteXPos
-    LDA #140
+
+    ;LDA #140
+    LDA #107
     STA GhostSpriteYPos
 
     ; LifeCount
@@ -444,6 +476,10 @@ InitVariables
     ; Set Wafer XPos Index
     STA WaferXPosIndex
 
+    ; Ghost Velocity Mask
+    LDA #%1000
+    STA GhostVelocityMask
+
     ; PacmanSpriteDataPointer
     LDA #<Sprite0Data
     STA SpriteAddrPtr
@@ -459,16 +495,16 @@ InitVariables
     RTS
 
 ;==================================================================================
-; PositionSpriteX - Subroutine to position all sprites (P0,P1,M0)
+; PositionSpriteX - Subroutine to position all sprites (P0,P1,M0,M1,BL)
 ;==================================================================================
 
 PositionSpriteX
     STA WSYNC                                   ; 3
     STA HMCLR  ; clear any previous movement    ; 3
 
-    LDX #3     ; sprite index                   ; 2
+    LDX #5     ; sprite index                   ; 2
 
-PosSP1   
+PosSP   
 
     LDA SpriteXPos-1,x                          ; 4
     TAY                                         ; 2
@@ -489,11 +525,11 @@ PosSP1
     LDY PS_temp                                 ; 3
 
     CMP #15                                     ; 2
-    BCC NH1                                     ; 3
+    BCC NH                                     ; 3
     SBC #15                                     ; 2
     INY                                         ; 2
 
-NH1
+NH
     ; Use remainder for fine adjustment
     EOR #7                                      ; 2
     ASL                                         ; 2
@@ -504,23 +540,23 @@ NH1
     STA HMP0-1,x    ; fine movement             ; 4
     STA WSYNC                                   ; 3
 
-    JSR Ret1         ; just a 12 cycle delay     ; 12
+    JSR Ret         ; just a 12 cycle delay     ; 12
     BIT 0           ; 15 cycles = 3 loops :)    ; 3
 
 
-Jiggle1  
+Jiggle  
     DEY                                         ; 2
-    BPL Jiggle1                                  ; 3
+    BPL Jiggle                                  ; 3
 
     STA RESP0-1,x                               ; 4
 
     DEX                                         ; 2
-    BNE PosSP1                                   ; 3
+    BNE PosSP                                   ; 3
 
     STA WSYNC                                   ; 3
     STA HMOVE                                   ; 3
     
-Ret1
+Ret
     RTS                                         ; 6
 
 ;==================================================================================
@@ -596,12 +632,18 @@ UpdateEntities
 
     ; Remove Collisions After Checks
     STA CXCLR
+
+    ; Update Ghost Position
+    JSR UpdateGhostPosition
     
     ; Increase Score According with Picked Up Wafer Buffer
     JSR UpdateScore
 
     ; Update Wafer XPos Index
     JSR UpdateWaferIndex
+
+    ; Update Ball XPos Index
+    JSR UpdateBallIndex
 
     ; Check Game Over
     LDA LifeCount
@@ -617,6 +659,69 @@ GoToGameOver
     LDA #3
     STA GameState
     JMP HandleGameOver
+
+;==================================================================================
+; UpdateGhostPosition - Update ghost position according to GhostVelocityMask
+;==================================================================================
+
+UpdateGhostPosition
+    LDX GhostVelocityMask
+    
+    TXA
+    AND #%1000
+    BNE GhostGoRight
+
+    TXA
+    AND #%0100
+    BNE GhostGoLeft
+
+    TXA
+    AND #%0010
+    BNE GhostGoDown
+
+    TXA
+    AND #%0001
+    BNE GhostGoUp
+
+    JMP UpdateGhostPositionRet
+
+GhostGoRight 
+    INC GhostSpriteXPos
+
+    ; Verify If Sprite is in Far Right
+    LDA GhostSpriteXPos
+    CMP #160
+    BCC GhostNotFarRight
+
+    LDA #0
+    STA GhostSpriteXPos
+
+GhostNotFarRight
+    JMP UpdateGhostPositionRet
+
+GhostGoLeft
+    DEC SpriteXPos
+
+    ; Verify If Sprite is in Far Left
+    LDA GhostSpriteXPos
+    CMP #0
+    BNE GhostNotFarLeft
+
+    LDA #160
+    STA GhostSpriteXPos
+
+GhostNotFarLeft
+    JMP UpdateGhostPositionRet
+
+GhostGoDown
+    DEC SpriteYPos
+    JMP UpdatePlayerPositionRet
+
+GhostGoUp
+    INC SpriteYPos
+
+UpdateGhostPositionRet
+    RTS
 
 ;==================================================================================
 ; CheckWaferCollision - Verify player collision with wafer
@@ -744,6 +849,33 @@ NotLevelEnd
     RTS
 
 ;==================================================================================
+; UpdateBallIndex - increase ball XPos Index and apply it
+;==================================================================================
+
+UpdateBallIndex
+    ; Check Timer10
+    LDA TimerCounter10
+    BNE DontChangeIndex
+    
+    ; Change Ball Index
+    INC BallXPosIndex
+
+    LDX BallXPosIndex
+    CPX #2
+    BNE ReturnBallIndex
+
+BallIndexEquals2
+    LDX #0
+    STX BallXPosIndex
+
+ReturnBallIndex
+    LDA BallXPosArray,x
+    STA CurBallXPos
+    
+DontChangeIndex
+    RTS
+
+;==================================================================================
 ; UpdateWaferIndex - increase wafer XPos Index and apply it
 ;==================================================================================
 
@@ -759,8 +891,8 @@ WaferIndexEquals6
     STX WaferXPosIndex
 
 ReturnWaferIndex
-    LDA WaferXPosArray0,x
-    STA CurWaferXPos0
+    LDA WaferXPosArray,x
+    STA CurWaferXPos
     RTS
 
 ;==================================================================================
@@ -1340,10 +1472,23 @@ UpdateTimer5
 ReachedLimitTimer5
     LDA #TIMER_LIMIT1
     STA TimerCounter5
-    JMP UpdateTimer20
+    JMP UpdateTimer10
 
 DidntReachLimitTimer5
     DEC TimerCounter5
+
+UpdateTimer10
+    LDA TimerCounter10
+    CMP #0
+    BNE DidntReachLimitTimer10
+
+ReachedLimitTimer10
+    LDA #TIMER_LIMIT3
+    STA TimerCounter10
+    JMP UpdateTimer20
+
+DidntReachLimitTimer10
+    DEC TimerCounter10
 
 UpdateTimer20
     LDA TimerCounter20
@@ -1514,10 +1659,17 @@ Delay12
     RTS
 
 ;==================================================================================
-; WaferXPosArray0
+; BallXPosArray - Array containing the XPos for each column of balls
 ;==================================================================================
 
-WaferXPosArray0
+BallXPosArray
+    .byte 10,150
+
+;==================================================================================
+; WaferXPosArray - Array containing the XPos for each column of wafers
+;==================================================================================
+
+WaferXPosArray
     .byte 25,35,60,100,130,140
 
 ;==================================================================================
@@ -1548,8 +1700,8 @@ LivesNUSIZ0LookUp
 CheckLineBytes
     .byte 0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,7,7,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,0,0,0,0,-1,-1,-1,-1
+    .byte -1,-1,0,0,0,0,0,0,0,0,0
     .byte 6,6,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,5,5,0,0,0,0,0
@@ -1560,7 +1712,7 @@ CheckLineBytes
     .byte 0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,2
     .byte 2,0,0,0,0,0,0,0,0,0,0
-    .byte 0,0,0,0,0,0,0,0,0,0,0
+    .byte 0,0,0,-1,-1,-1,-1,-1,-1,0,0
     .byte 0,0,0,0,0,0,0,0,0,1,1
     .byte 0,0,0,0,0,0,0,0,0,0,0
     .byte 0,0,0,0,0,0,0,0,0,0,0
